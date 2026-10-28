@@ -1,0 +1,5 @@
+issuers:
+  /pki/issuers/x:
+    signer_key_name: /pki/ca/root
+    ttl_seconds: 3600
+    auto_renew: true

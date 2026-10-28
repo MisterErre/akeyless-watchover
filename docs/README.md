@@ -1,0 +1,20 @@
+# akeyless-watchover documentation
+
+| # | Document | What it covers |
+|---|---|---|
+| 1 | [architecture.md](architecture.md) | Components, identities, data flow, what runs where |
+| 2 | [rbac-model.md](rbac-model.md) | How Akeyless authorization actually works (verified facts) |
+| 3 | [path-and-role-design.md](path-and-role-design.md) | Turning a structural diagram into paths, roles and bindings |
+| 4 | [model-reference.md](model-reference.md) | Every key of every YAML model file |
+| 5 | [terraform.md](terraform.md) | The reference implementation, guards, provider gotchas |
+| 6 | [pipeline.md](pipeline.md) | Bootstrap identity, GitHub/GitLab pipelines, drift, state |
+| 7 | [cli.md](cli.md) | CLI playbook and the CLI-only account settings |
+| 8 | [testing-and-verification.md](testing-and-verification.md) | Offline tests, access simulator, live verification |
+| 9 | [brownfield-import.md](brownfield-import.md) | Bringing an existing Akeyless account under code |
+| 10 | [conjur-migration.md](conjur-migration.md) | CyberArk Conjur -> Akeyless (secrets and RBAC) |
+| 11 | [pki.md](pki.md) | Private/public CA governance |
+| 12 | [limitations.md](limitations.md) | What is not possible, what is unverified, and why |
+
+Sources of truth used: docs.akeyless.io, the Akeyless OpenAPI / Go SDK v5.0.x, and the source
+and schema of the Terraform provider `akeyless-community/akeyless` v2.0.5. Statements that no
+primary source confirms are marked **VERIFY** everywhere in this repository.

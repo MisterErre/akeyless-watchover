@@ -1,0 +1,75 @@
+# Template for YOUR governance repository (GitLab). CI/CD variables:
+#   AKEYLESS_PIPELINE_ACCESS_ID (bootstrap output), AKEYLESS_API (optional), AKEYLESS_GATEWAY_API (optional)
+#   TF_VAR_auth_method_secrets / TF_VAR_event_forwarder_secrets / TF_VAR_gateway_secrets (masked, JSON maps)
+#   Protect the default branch and the "akeyless-production" environment.
+# Drift: create a pipeline schedule (nightly); the drift job runs only for schedules.
+stages: [checks, plan, apply, drift]
+
+default:
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  id_tokens:
+    AKEYLESS_JWT:
+      aud: akeyless # must equal the audience in bootstrap (ci.audience)
+
+variables:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  AKEYLESS_API: https://api.akeyless.io
+  TF_VAR_akeyless_api: $AKEYLESS_API
+  TF_VAR_gateway_api: $AKEYLESS_GATEWAY_API
+  TF_VAR_pipeline_access_id: $AKEYLESS_PIPELINE_ACCESS_ID
+
+.tf_env: &tf_env
+  - export TF_VAR_pipeline_jwt="$AKEYLESS_JWT"
+  - cd terraform && terraform init
+
+checks:
+  stage: checks
+  script:
+    - apk add --no-cache python3 py3-pip py3-yaml py3-pytest bash
+    - (cd terraform && terraform fmt -check -recursive && terraform init -backend=false && terraform validate && terraform test && bash tests/guard_messages.sh terraform)
+    - python3 scripts/akl_simulate.py --model terraform/model --expectations terraform/model/access_expectations.yaml
+    - python3 -m pytest -q scripts/tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+
+plan:
+  stage: plan
+  script:
+    - *tf_env
+    - terraform plan -lock=false -out=tfplan
+    - terraform show -no-color tfplan > plan.txt
+  artifacts:
+    paths: [terraform/plan.txt]
+    expire_in: 2 weeks
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+apply:
+  stage: apply
+  environment: akeyless-production
+  script:
+    - apk add --no-cache python3 py3-yaml curl jq bash
+    - *tf_env
+    - terraform plan -out=tfplan
+    - terraform apply tfplan
+    - cd ..
+    - curl -sSfo /usr/local/bin/akeyless https://akeyless-cli.s3.us-east-2.amazonaws.com/cli/latest/cli-linux-amd64 && chmod +x /usr/local/bin/akeyless
+    - export AKEYLESS_TOKEN="$(AKEYLESS_ACCESS_ID="$AKEYLESS_PIPELINE_ACCESS_ID" CI_JWT="$AKEYLESS_JWT" bash scripts/akl_ci_token.sh)"
+    - python3 scripts/akl_account_settings.py --governance terraform/model/governance.yaml
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      when: manual
+
+drift:
+  stage: drift
+  script:
+    - *tf_env
+    - set +e; terraform plan -lock=false -detailed-exitcode -no-color > drift.txt; rc=$?; set -e
+    - cat drift.txt
+    - if [ "$rc" -eq 2 ]; then echo "Akeyless configuration drift detected"; exit 1; fi
+    - exit "$rc"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"

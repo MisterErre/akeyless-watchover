@@ -1,0 +1,2 @@
+roles:
+  /governance/roles/x: { allow_root_scope: true, rules: [ { path: "/*", capabilities: [read, list] } ] }

@@ -1,0 +1,31 @@
+# Expected effective access per persona. Used by:
+#   scripts/akl_simulate.py  - offline, on every pull request (model semantics)
+#   scripts/akl_verify.py    - live, after apply (personas with a CLI profile)
+# expect = exact effective capability set ([] = no access). 'list' is implied by any capability.
+personas:
+  payments-admin:
+    auth_method: /governance/auth/sso-entra-oidc
+    claims: { email: [alice@example.com], groups: [grp-akl-payments-admins] }
+    # profile: verify-payments-admin
+  auditor:
+    auth_method: /governance/auth/sso-entra-oidc
+    claims: { email: [audit@example.com], groups: [grp-akl-auditors] }
+  random-employee:
+    auth_method: /governance/auth/sso-entra-oidc
+    claims: { email: [bob@example.com], groups: [grp-everyone] }
+  checkout-prod-pod:
+    auth_method: /governance/auth/k8s-payments-prod
+    claims: {}
+
+checks:
+  - { persona: payments-admin, path: /payments/checkout/nonprod/db/app, expect: [read, list, create, update, delete] }
+  - { persona: payments-admin, path: /payments/checkout/prod/db/app,    expect: [read, list] }
+  - { persona: payments-admin, path: /payments/checkout/prod/break-glass/root, expect: [] }
+  - { persona: payments-admin, path: /hr/payroll/prod/db,               expect: [] }
+  - { persona: auditor,        path: /payments/checkout/prod/db/app,    expect: [list] }
+  - { persona: auditor,        path: /governance/roles/payments/team-admin, type: role, expect: [read, list] }
+  - { persona: random-employee, path: /payments/checkout/prod/db/app,   expect: [] }
+  - { persona: checkout-prod-pod, path: /payments/checkout/prod/db/app, expect: [read, list] }
+  - { persona: checkout-prod-pod, path: /payments/checkout/prod/break-glass/root, expect: [] }
+  - { persona: checkout-prod-pod, path: /payments/checkout/nonprod/db/app, expect: [] }
+  - { persona: checkout-prod-pod, path: /pki/issuers/payments-server,   expect: [read, list] }

@@ -1,0 +1,21 @@
+roles:
+  /governance/roles/payments/checkout-prod-workload:
+    description: Checkout prod workloads read their own secrets
+    rules:
+      - { path: "/payments/checkout/prod/*", capabilities: [read, list] }
+      - { path: "/payments/checkout/prod/break-glass/*", capabilities: [deny] }
+    associations:
+      - { auth_method: /governance/auth/aws-payments-prod }
+      - { auth_method: /governance/auth/k8s-payments-prod }
+
+  /governance/roles/payments/team-admin:
+    description: Payments engineers manage nonprod secrets of all their apps, read prod
+    audit_access: scoped
+    rules:
+      - { path: "/payments/+/nonprod/*", capabilities: [read, list, create, update, delete] }
+      - { path: "/payments/+/prod/*", capabilities: [read, list] }
+      - { path: "/payments/+/prod/break-glass/*", capabilities: [deny] }
+    associations:
+      - auth_method: /governance/auth/sso-entra-oidc
+        sub_claims:
+          groups: [grp-akl-payments-admins]

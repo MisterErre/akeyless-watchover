@@ -1,0 +1,28 @@
+# Gateway admin plane - requires var.gateway_api (one Gateway cluster per state).
+allowed_access:
+  platform-admins:
+    auth_method: /governance/auth/sso-entra-oidc
+    sub_claims: { groups: [grp-akl-platform-admins] }
+    permissions: [admin]
+  pki-operators:
+    auth_method: /governance/auth/sso-entra-oidc
+    sub_claims: { groups: [grp-akl-pki] }
+    permissions: [general, targets]
+
+log_forwarding:
+  type: syslog
+  host: siem.example.com:6514
+  network: tcp
+  enable_tls: true
+  formatter: cef
+  output_format: json
+
+# Optional: one-shot or recurring secret import from Conjur (values only).
+migrations:
+  conjur:
+    conjur-prod:
+      target_location: /conjur
+      conjur_url: https://conjur.example.com
+      conjur_account: myorg
+      conjur_username: host/akeyless-migration
+      conjur_api_key_var: conjur_api_key   # key in var.gateway_secrets

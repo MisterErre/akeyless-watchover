@@ -1,0 +1,2 @@
+roles:
+  /governance/roles/x: { rules: [ { path: "/a/*", capabilities: [approval_authority, request_access], type: sra-rule } ] }

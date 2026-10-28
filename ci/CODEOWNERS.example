@@ -1,0 +1,7 @@
+# Copy to .github/CODEOWNERS (GitHub) or CODEOWNERS (GitLab) in your governance repo.
+# Every change needs the platform/security owners; BU role files also need the BU.
+*                               @my-org/akeyless-platform
+/terraform/model/roles/payments.yaml  @my-org/akeyless-platform @my-org/payments-leads
+/terraform/model/auth_methods.yaml    @my-org/akeyless-platform @my-org/security
+/terraform/model/governance.yaml      @my-org/akeyless-platform @my-org/security
+/bootstrap/                           @my-org/security

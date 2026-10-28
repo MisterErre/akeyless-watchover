@@ -1,0 +1,4 @@
+roles:
+  /governance/roles/x:
+    rules: [ { path: "/a/*", capabilities: [read] } ]
+    associations: [ { auth_method: /governance/auth/sso } ]

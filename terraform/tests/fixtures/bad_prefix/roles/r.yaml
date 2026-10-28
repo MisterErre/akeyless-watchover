@@ -1,0 +1,2 @@
+roles:
+  /teams/x: { rules: [ { path: "/a/*", capabilities: [read] } ] }

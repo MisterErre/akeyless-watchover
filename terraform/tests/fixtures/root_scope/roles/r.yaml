@@ -1,0 +1,2 @@
+roles:
+  /governance/roles/x: { rules: [ { path: "/*", capabilities: [read, list] } ] }

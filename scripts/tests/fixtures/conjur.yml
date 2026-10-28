@@ -1,0 +1,28 @@
+- !policy
+  id: prod
+  body:
+    - !policy
+      id: payments
+      body:
+        - &vars
+          - !variable db/password
+          - !variable api-key
+        - !layer
+        - !host checkout
+        - !grant
+          role: !layer
+          member: !host checkout
+        - !permit
+          role: !layer
+          privileges: [read, execute]
+          resources: *vars
+        - !webservice internal
+- !group payments-admins
+- !user alice
+- !grant
+  role: !group payments-admins
+  member: !user alice
+- !permit
+  role: !group payments-admins
+  privileges: [read, update]
+  resource: !variable prod/payments/db/password

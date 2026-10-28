@@ -1,0 +1,58 @@
+# Account-wide governance objects.
+
+# Metadata every secret must carry (enforced by Akeyless when required: true)
+custom_fields:
+  owner-static:
+    name: owner
+    object_type: STATIC_SECRET
+    required: true
+  data-class-static:
+    name: data-class
+    object_type: STATIC_SECRET
+    required: false
+
+# Key policies per path
+key_policies:
+  /payments/*:
+    allowed_algorithms: [AES256GCM, RSA4096]
+    allowed_key_types: [dfc]
+    max_rotation_interval_days: 365
+    object_types: [items]
+
+# Subset of account settings managed by Terraform (provider 2.0.5 coverage).
+account_settings:
+  items_deletion_protection: true
+  jwt_ttl_default: 60
+  jwt_ttl_min: 15
+  jwt_ttl_max: 480
+  default_versioning: true
+  max_versions: "10"
+
+# Settings the provider does not expose - applied by scripts/akl_account_settings.py
+# Keys are update-account-settings CLI flags (without --).
+account_settings_cli:
+  bound-ips: [10.0.0.0/8]
+  lock-bound-ips: true
+  allowed-client-type: [cli, ui, sdk]
+  lock-allowed-client-type: true
+  max-rotation-interval-enable: true
+  max-rotation-interval: 90
+  usage-event-enable: true
+  usage-event-interval: 90
+  usage-event-object-type: item
+
+# Notifications
+event_forwarders:
+  /governance/events/secops-email:
+    type: email
+    email_to: [secops@example.com]
+    runner_type: immediate
+    event_types:
+      - certificate-pending-expiration
+      - certificate-expired
+      - auth-method-pending-expiration
+      - auth-method-expired
+      - rotated-secret-failure
+      - request-access
+    items_event_source_locations: ["/*"]
+    auth_methods_event_source_locations: ["/*"]

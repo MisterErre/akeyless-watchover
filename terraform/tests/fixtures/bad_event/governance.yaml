@@ -1,0 +1,2 @@
+event_forwarders:
+  /governance/events/x: { type: email, email_to: [a@b.c], event_types: [everything] }

@@ -1,0 +1,7 @@
+auth_methods:
+  /governance/auth/sso:
+    type: oidc
+    unique_identifier: email
+    force_sub_claims: true
+  /governance/auth/k8s:
+    type: k8s

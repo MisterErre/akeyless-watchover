@@ -1,0 +1,22 @@
+roles:
+  /governance/roles/platform/auditors:
+    description: Read-only visibility on configuration and audit, no secret values
+    audit_access: all
+    analytics_access: all
+    reverse_rbac_access: all
+    rules:
+      - { path: "/*", capabilities: [list] }
+      - { path: "/*", capabilities: [read, list], type: role-rule }
+      - { path: "/*", capabilities: [read, list], type: auth-method-rule }
+      - { path: "/*", capabilities: [list], type: target-rule }
+    associations:
+      - auth_method: /governance/auth/sso-entra-oidc
+        sub_claims: { groups: grp-akl-auditors }
+
+  /governance/roles/platform/pki-requesters-payments:
+    description: Request certificates from the payments issuer (capability to VERIFY - see docs)
+    rules:
+      - { path: "/pki/issuers/payments-server", capabilities: [read, list] }
+      - { path: "/pki/certs/payments/*", capabilities: [read, list] }
+    associations:
+      - { auth_method: /governance/auth/k8s-payments-prod }

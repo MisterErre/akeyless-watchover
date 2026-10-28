@@ -1,1 +1,87 @@
 # akeyless-watchover
+
+**A Claude skill and delivery kit for Akeyless governance as code:** RBAC and path design, CLI and
+Terraform. You describe or draw how your organisation is structured. Claude turns it into Akeyless
+paths, access roles, auth methods and associations as a reviewed YAML model, and Terraform
+delivers it through one repository, one change, one pipeline.
+
+> Focus: the configuration inside Akeyless (governance). Gateway deployment and consumer
+> integrations are out of scope.
+
+## What you can do with it
+
+| Ask Claude... | You get |
+|---|---|
+| "Here is our org/app diagram - design the Akeyless RBAC" | path tree, access matrix, role/auth-method YAML, access expectations, plan expectations, CLI equivalent |
+| "Give team X read on prod, write on nonprod" | a minimal diff to `model/roles/<bu>.yaml` + updated expectations |
+| "Set up the governance repo and pipeline" | bootstrap of a key-less CI identity (GitHub/GitLab OIDC), plan/apply/drift pipelines, CODEOWNERS |
+| "Import what we already configured in the console" | YAML model + `import {}` blocks + review report from your live account |
+| "Migrate from CyberArk Conjur" | Gateway secret migration + Conjur policy translated into Akeyless roles and a bindings report |
+| "Set up internal PKI / public CA issuers" | CA key, issuers with policy, renewal, CRL/OCSP/ACME, requester roles, expiry notifications |
+| "Harden the account" | account settings (Terraform subset + CLI-only flags), mandatory custom fields, key policies |
+| "Who can administer the Gateway / forward audit logs?" | Gateway allowed access, SIEM log forwarding |
+| "Prove that X can / cannot access Y" | offline simulation on every PR + live verification per persona |
+| "How do I do this with the CLI?" | exact commands, checked against the CLI reference |
+
+## Install the skill
+
+**Claude (web/desktop):** build the ZIP and upload it under **Customize > Skills** (older UI:
+**Settings > Capabilities > Skills > Upload skill**). Code execution must be enabled.
+
+```bash
+scripts/build_skill.sh           # -> dist/akeyless-watchover.zip  (also attached to every CI run as an artifact)
+```
+
+**Claude Code:** unzip into your personal or project skills folder:
+
+```bash
+unzip dist/akeyless-watchover.zip -d ~/.claude/skills/          # personal
+unzip dist/akeyless-watchover.zip -d <project>/.claude/skills/   # project
+```
+
+The ZIP contains `SKILL.md`, `references/` (this repo's `docs/`) and `template/` (the tested
+kit). Claude loads the skill automatically when you talk about Akeyless governance. Example prompts:
+
+- "Using akeyless-watchover, here's our structure: [diagram]. Produce the model and the tests."
+- "Add a read-only role for the fraud team on payments prod and show me the plan expectations."
+- "Translate this Conjur policy into Akeyless roles."
+
+## Use the kit in your governance repository
+
+```text
+terraform/   data-driven Terraform (provider akeyless-community/akeyless ~> 2.0)
+  model/     YAML: roles/<bu>.yaml, auth_methods, folders, governance, pki, gateway, access_expectations
+  tests/     terraform test (mocked provider), fixtures, guard_messages.sh
+bootstrap/   one-time CI identity (OAuth2/JWT trusting GitHub or GitLab OIDC) + plan/apply roles
+scripts/     akl_simulate.py  akl_verify.py  akl_export.py  conjur2akeyless.py
+             akl_account_settings.py  akl_ci_token.sh  build_skill.sh
+ci/          GitHub Actions + GitLab CI templates, CODEOWNERS example
+docs/        full documentation (also bundled in the skill as references/)
+skill/       SKILL.md source
+```
+
+1. **Bootstrap once** (admin): `cd bootstrap && terraform apply -var-file=bootstrap.tfvars` and
+   save the `pipeline_access_id` output as a CI variable ([docs/pipeline.md](docs/pipeline.md)).
+2. Copy `terraform/`, `scripts/` and the matching `ci/` template into your governance repo. Add a
+   remote state backend.
+3. Edit the YAML model ([docs/model-reference.md](docs/model-reference.md)). Run the tests locally:
+   ```bash
+   (cd terraform && terraform init -backend=false && terraform test && tests/guard_messages.sh terraform)
+   python3 scripts/akl_simulate.py --model terraform/model --expectations terraform/model/access_expectations.yaml
+   ```
+4. Open a merge request: checks + plan run automatically. Merge: apply runs behind a protected
+   environment, then the CLI-only account settings are applied. Nightly: drift detection.
+
+## How correctness is ensured
+
+- Facts come from docs.akeyless.io, the Akeyless OpenAPI/Go SDK v5.0.x and the provider v2.0.5
+  source and schema. Anything not confirmed is marked **VERIFY** ([docs/limitations.md](docs/limitations.md)).
+- Offline tests (no Akeyless account needed): 18 Terraform test runs, plus 13 proofs that each
+  negative fixture fails with the intended guard, 3 bootstrap runs and 24 Python tests. They run on
+  OpenTofu and HashiCorp Terraform in this repo's CI.
+- Live checks (your account): plan review, `akl_verify.py` per persona, nightly drift.
+
+## Documentation
+
+Start at [docs/README.md](docs/README.md): architecture, RBAC model, path and role design, model
+reference, Terraform, pipeline, CLI, testing, brownfield import, Conjur migration, PKI, limitations.

@@ -1,0 +1,2 @@
+allowed_access:
+  admins: { auth_method: /governance/auth/sso, permissions: [superuser] }

@@ -1,0 +1,8 @@
+folders:
+  /payments:
+    description: Payments business unit
+    delete_protection: true
+  /payments/checkout:
+    description: Checkout application
+  /payments/checkout/prod:
+    delete_protection: true

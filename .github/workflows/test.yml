@@ -1,0 +1,55 @@
+# CI of the skill repository itself: everything runs offline (mocked provider), no Akeyless account needed.
+name: test
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tool: [terraform, tofu]
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.tool == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+        with: { terraform_wrapper: false }
+      - if: matrix.tool == 'tofu'
+        uses: opentofu/setup-opentofu@v1
+        with: { tofu_wrapper: false }
+      - name: terraform/ (reference implementation)
+        working-directory: terraform
+        run: |
+          ${{ matrix.tool }} fmt -check -recursive
+          ${{ matrix.tool }} init -backend=false
+          ${{ matrix.tool }} validate
+          ${{ matrix.tool }} test
+          tests/guard_messages.sh ${{ matrix.tool }}
+      - name: bootstrap/
+        working-directory: bootstrap
+        run: |
+          ${{ matrix.tool }} fmt -check -recursive
+          ${{ matrix.tool }} init -backend=false
+          ${{ matrix.tool }} validate
+          ${{ matrix.tool }} test
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml pytest
+      - run: python3 -m pytest -q scripts/tests
+      - run: python3 scripts/akl_simulate.py --model terraform/model --expectations terraform/model/access_expectations.yaml
+  package:
+    needs: [terraform, python]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/build_skill.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: akeyless-watchover-skill
+          path: dist/akeyless-watchover.zip

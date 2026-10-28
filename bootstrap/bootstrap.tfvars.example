@@ -1,0 +1,6 @@
+ci = {
+  platform   = "github"                     # or "gitlab"
+  repository = "my-org/akeyless-governance" # gitlab: "group/akeyless-governance"
+  # gitlab_url = "https://gitlab.example.com"
+  # apply_ref  = "refs/heads/main"           # gitlab: "main"
+}

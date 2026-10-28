@@ -1,0 +1,24 @@
+ca_keys:
+  /pki/ca/internal-root:
+    alg: RSA4096
+    certificate_ttl_days: 3650
+    subject:
+      countryName: ES
+      organizationName: Example
+      organizationalUnitName: Security
+      commonName: Example Internal Root CA
+
+issuers:
+  /pki/issuers/payments-server:
+    signer_key_name: /pki/ca/internal-root
+    ttl_seconds: 7776000          # 90 days
+    allowed_domains: [payments.internal.example.com]
+    allow_subdomains: true
+    server_flag: true
+    client_flag: false
+    key_usage: [DigitalSignature, KeyEncipherment]
+    destination_path: /pki/certs/payments
+    protect_certificates: true
+    auto_renew: true
+    scheduled_renew_days: 30
+    expiration_event_in_days: [30, 7]
