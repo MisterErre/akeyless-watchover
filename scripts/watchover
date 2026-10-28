@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# akeyless-watchover kit entry point. Run 'scripts/watchover help'.
+exec python3 "$(dirname "$0")/watchover.py" "$@"

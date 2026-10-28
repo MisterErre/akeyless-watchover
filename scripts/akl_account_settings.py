@@ -61,15 +61,20 @@ def build_args(settings: dict) -> list[str]:
     return args
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--governance", required=True)
-    ap.add_argument("--profile")
-    ap.add_argument("--token", default=os.environ.get("AKEYLESS_TOKEN"),
-                    help="Akeyless token (default: $AKEYLESS_TOKEN, e.g. from scripts/akl_ci_token.sh)")
-    ap.add_argument("--akeyless", default="akeyless")
-    ap.add_argument("--dry-run", action="store_true")
-    a = ap.parse_args()
+    ap.add_argument("--governance", required=True, help="path to model/governance.yaml (reads account_settings_cli)")
+    ap.add_argument("--profile", help="akeyless CLI profile of an account admin")
+    ap.add_argument("--token", default=None,
+                    help="Akeyless token (default: $AKEYLESS_TOKEN, e.g. from 'watchover token')")
+    ap.add_argument("--akeyless", default="akeyless", help="path to the akeyless CLI binary")
+    ap.add_argument("--dry-run", action="store_true", help="print the update-account-settings command, do not run it")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> None:
+    a = build_parser().parse_args(argv)
+    a.token = a.token or os.environ.get("AKEYLESS_TOKEN")
     settings = load_yaml(a.governance).get("account_settings_cli") or {}
     if not settings:
         print("no account_settings_cli in model - nothing to do")

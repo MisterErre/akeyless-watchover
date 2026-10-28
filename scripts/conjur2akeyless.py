@@ -199,13 +199,17 @@ def translate(pol: Policy, item_prefix: str, role_prefix: str):
     return roles, bindings
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("policy", nargs="+", help="Conjur policy YAML files (loaded at the root namespace in the given order)")
     ap.add_argument("--item-prefix", default="/conjur", help="Akeyless folder the Gateway migration imports into")
-    ap.add_argument("--role-prefix", default="/governance/roles/")
-    ap.add_argument("--out", required=True)
-    a = ap.parse_args()
+    ap.add_argument("--role-prefix", default="/governance/roles/", help="prefix of the generated Akeyless role names")
+    ap.add_argument("--out", required=True, help="output directory (roles/conjur.yaml, bindings.yaml, REPORT.md)")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> None:
+    a = build_parser().parse_args(argv)
     pol = Policy()
     for f in a.policy:
         with open(f, encoding="utf-8") as fh:

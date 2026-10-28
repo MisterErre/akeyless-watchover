@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 - 2026-10-28
+
+Added
+- `scripts/watchover`: one entry point for every kit command (`test`, `simulate`, `verify`, `export`, `conjur`, `account-settings`, `token`, `build-skill`, `help`, `version`).
+- `watchover help`: overview, per-command parameters and examples (`help <command>`), skill commands (`help skill`) and the full guide (`help --markdown`).
+- Skill commands with a `help` command: `help`, `design`, `change`, `review`, `pipeline`, `import`, `conjur`, `pki`, `harden`, `gateway`, `verify`, `cli`, `explain`.
+- `docs/usage-guide.md`, generated from `scripts/watchover.py`. Tests fail when the guide, SKILL.md or any parameter's help text drift from the code.
+
+Changed
+- Every script parameter now has a help text. Scripts expose `build_parser()` and `main(argv)`.
+
 ## 1.0.0 - 2026-10-28
 
 First release as **akeyless-watchover**. It was previously drafted as `akeyless-governance-iac`.

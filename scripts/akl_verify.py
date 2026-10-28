@@ -40,13 +40,17 @@ def describe(cli: str, path: str, obj_type: str, profile: str, error_means_no_ac
     return {str(c) for c in (data.get("client_permissions") or [])}
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--expectations", required=True)
-    ap.add_argument("--akeyless", default="akeyless", help="path to the akeyless CLI")
+    ap.add_argument("--expectations", required=True, help="access_expectations.yaml (personas need a 'profile')")
+    ap.add_argument("--akeyless", default="akeyless", help="path to the akeyless CLI binary")
     ap.add_argument("--error-means-no-access", action="store_true",
                     help="treat a failing describe-permissions call as 'no permissions' (check the CLI behaviour first)")
-    a = ap.parse_args()
+    return ap
+
+
+def main(argv: list[str] | None = None) -> None:
+    a = build_parser().parse_args(argv)
     exp = load_yaml(a.expectations)
     personas = exp.get("personas") or {}
     failures = skipped = 0

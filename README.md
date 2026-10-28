@@ -40,11 +40,28 @@ unzip dist/akeyless-watchover.zip -d <project>/.claude/skills/   # project
 ```
 
 The ZIP contains `SKILL.md`, `references/` (this repo's `docs/`) and `template/` (the tested
-kit). Claude loads the skill automatically when you talk about Akeyless governance. Example prompts:
+kit). Claude loads the skill automatically when you talk about Akeyless governance.
 
-- "Using akeyless-watchover, here's our structure: [diagram]. Produce the model and the tests."
-- "Add a read-only role for the fraud team on payments prod and show me the plan expectations."
-- "Translate this Conjur policy into Akeyless roles."
+## Commands and help
+
+**Skill commands** (type to Claude; Claude Code: `/akeyless-watchover <command>`):
+`help`, `design`, `change`, `review`, `pipeline`, `import`, `conjur`, `pki`, `harden`, `gateway`,
+`verify`, `cli`, `explain`. Start with `/akeyless-watchover help`.
+
+**Kit commands** (terminal, in your governance repo): `scripts/watchover <command>` -
+`test`, `simulate`, `verify`, `export`, `conjur`, `account-settings`, `token`, `build-skill`,
+`help`, `version`.
+
+```bash
+scripts/watchover help                 # overview
+scripts/watchover help export          # parameters + examples of one command
+scripts/watchover help skill           # the skill commands
+scripts/watchover help --markdown      # regenerates docs/usage-guide.md
+```
+
+Everything - every command, parameter, default and example - is in
+**[docs/usage-guide.md](docs/usage-guide.md)**, generated from `scripts/watchover.py` and
+checked by a test so it never drifts from the code.
 
 ## Use the kit in your governance repository
 
@@ -53,8 +70,8 @@ terraform/   data-driven Terraform (provider akeyless-community/akeyless ~> 2.0)
   model/     YAML: roles/<bu>.yaml, auth_methods, folders, governance, pki, gateway, access_expectations
   tests/     terraform test (mocked provider), fixtures, guard_messages.sh
 bootstrap/   one-time CI identity (OAuth2/JWT trusting GitHub or GitLab OIDC) + plan/apply roles
-scripts/     akl_simulate.py  akl_verify.py  akl_export.py  conjur2akeyless.py
-             akl_account_settings.py  akl_ci_token.sh  build_skill.sh
+scripts/     watchover (entry point) + akl_simulate.py akl_verify.py akl_export.py
+             conjur2akeyless.py akl_account_settings.py akl_ci_token.sh build_skill.sh
 ci/          GitHub Actions + GitLab CI templates, CODEOWNERS example
 docs/        full documentation (also bundled in the skill as references/)
 skill/       SKILL.md source
@@ -66,8 +83,7 @@ skill/       SKILL.md source
    remote state backend.
 3. Edit the YAML model ([docs/model-reference.md](docs/model-reference.md)). Run the tests locally:
    ```bash
-   (cd terraform && terraform init -backend=false && terraform test && tests/guard_messages.sh terraform)
-   python3 scripts/akl_simulate.py --model terraform/model --expectations terraform/model/access_expectations.yaml
+   scripts/watchover test                 # every offline check, as CI runs them
    ```
 4. Open a merge request: checks + plan run automatically. Merge: apply runs behind a protected
    environment, then the CLI-only account settings are applied. Nightly: drift detection.
@@ -77,7 +93,7 @@ skill/       SKILL.md source
 - Facts come from docs.akeyless.io, the Akeyless OpenAPI/Go SDK v5.0.x and the provider v2.0.5
   source and schema. Anything not confirmed is marked **VERIFY** ([docs/limitations.md](docs/limitations.md)).
 - Offline tests (no Akeyless account needed): 18 Terraform test runs, plus 13 proofs that each
-  negative fixture fails with the intended guard, 3 bootstrap runs and 24 Python tests. They run on
+  negative fixture fails with the intended guard, 3 bootstrap runs and 39 Python tests. They run on
   OpenTofu and HashiCorp Terraform in this repo's CI.
 - Live checks (your account): plan review, `akl_verify.py` per persona, nightly drift.
 

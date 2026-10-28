@@ -16,7 +16,7 @@ what no primary source confirms - say so to the user instead of presenting it as
 
 ## Bundled files (when installed from the ZIP / repository)
 
-- `references/` - full documentation: `rbac-model.md`, `path-and-role-design.md`,
+- `references/` - full documentation: `usage-guide.md` (all commands and parameters), `rbac-model.md`, `path-and-role-design.md`,
   `model-reference.md` (every YAML key), `terraform.md`, `pipeline.md`, `cli.md`,
   `testing-and-verification.md`, `brownfield-import.md`, `conjur-migration.md`, `pki.md`,
   `limitations.md`. Read the one matching the task before answering in depth.
@@ -25,6 +25,36 @@ what no primary source confirms - say so to the user instead of presenting it as
   account settings, CI token), `ci/` (GitHub/GitLab pipelines, CODEOWNERS).
 If they are missing (skill installed as SKILL.md only), the source is
 `github.com/MisterErre/akeyless-watchover`; otherwise build from §4 of this file.
+
+## Commands
+
+The user may start a request with a command - `/akeyless-watchover <command> [args]` (Claude Code),
+`akeyless-watchover <command> [args]` or `/akeyless-watchover ...` elsewhere - or just describe the task.
+Map plain requests to the closest command. Without arguments, ask for the one missing input.
+
+| Command | Arguments | Deliver |
+|---|---|---|
+| `help` | [command] | The command table, parameters and examples. |
+| `design` | <diagram / description of BUs, apps, environments, personas> | Path tree, access matrix, YAML model (roles, auth methods, folders), access expectations, plan expectations, CLI equivalent. |
+| `change` | <access request in plain words> | Diff of model/roles/<bu>.yaml (and auth_methods.yaml if needed), new expectations, who must approve (CODEOWNERS). |
+| `review` | <model files, merge-request diff or plan output> | Findings by severity, failing guards, missing expectations, plan red flags (replacements). |
+| `pipeline` | [github / gitlab] [repository] | bootstrap.tfvars, CI file, variables to create, step-by-step order. |
+| `import` | [export directory or REPORT.md] | The `watchover export` command to run, then resolution of every REPORT.md item and the import plan checklist. |
+| `conjur` | <Conjur policy YAML> | Translated roles, bindings to fill (auth method + sub-claims), migration resource, cut-over plan. |
+| `pki` | <certificate requirements> | pki.yaml (CA keys, issuers), requester roles, expiry forwarder, CLI to issue/revoke. |
+| `harden` | [current settings or concerns] | governance.yaml: account_settings (Terraform), account_settings_cli (CLI), custom fields, key policies, event forwarders. |
+| `gateway` | <who administers which Gateway, SIEM target> | gateway.yaml (allowed_access, log_forwarding), gateway_api setup. |
+| `verify` | [persona / path] | access_expectations.yaml checks, `watchover simulate` / `watchover verify` commands, Impersonate As steps. |
+| `cli` | <task> | Commands checked against the CLI reference, with the equivalent model change. |
+| `explain` | <topic> | A short answer with the verified facts and VERIFY caveats. |
+
+`help`: reply with the content of `references/usage-guide.md` (skill commands, kit commands, every
+parameter, examples, exit codes). With an argument (`help design`, `help export`), show only that
+command's section. If the references are not bundled, render the table above and the kit command
+list from §3, and point to `scripts/watchover help` in the repository - never invent parameters.
+
+Every command ends with the verification step that applies (offline tests, simulation, plan
+review or live verification) and with the VERIFY caveats that touch the answer.
 
 ## 0. Ground rules
 
@@ -94,7 +124,8 @@ terraform/   versions.tf main.tf auth_methods.tf roles.tf governance.tf pki.tf g
              model/{auth_methods,folders,governance,pki,gateway,access_expectations}.yaml model/roles/<bu>.yaml
              tests/model.tftest.hcl tests/fixtures/* tests/guard_messages.sh
 bootstrap/   CI OAuth2/JWT auth method + terraform-plan / terraform-apply roles (separate state)
-scripts/     akl_simulate.py akl_verify.py akl_export.py conjur2akeyless.py akl_account_settings.py akl_ci_token.sh
+scripts/     watchover (entry point: test, simulate, verify, export, conjur, account-settings, token,
+             build-skill, help) + the scripts it dispatches to
 ci/          github/akeyless-governance.yml gitlab/.gitlab-ci.yml CODEOWNERS.example
 ```
 

@@ -151,14 +151,18 @@ def convert_am(am: dict, report: list[str]) -> dict:
     return a
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--out", required=True)
-    ap.add_argument("--profile")
-    ap.add_argument("--akeyless", default="akeyless")
-    ap.add_argument("--from-dir", help="read saved JSON instead of calling the CLI")
+    ap.add_argument("--out", required=True, help="output directory (model/, imports.tf, raw/, REPORT.md)")
+    ap.add_argument("--profile", help="akeyless CLI profile with read access to all roles and auth methods")
+    ap.add_argument("--akeyless", default="akeyless", help="path to the akeyless CLI binary")
+    ap.add_argument("--from-dir", help="read saved JSON (roles/*.json, auth_methods/*.json) instead of calling the CLI")
     ap.add_argument("--exclude", action="append", default=[], help="regex of role/auth-method names to skip (repeatable)")
-    a = ap.parse_args()
+    return ap
+
+
+def main(argv: list[str] | None = None) -> None:
+    a = build_parser().parse_args(argv)
     excl = [re.compile(x) for x in a.exclude]
     skip = lambda n: any(x.search(n) for x in excl)  # noqa: E731
 

@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import sys
@@ -159,3 +158,43 @@ def test_translated_conjur_roles_pass_model_loader(tmp_path):
     run("scripts/conjur2akeyless.py", os.path.join(HERE, "fixtures/conjur.yml"), "--out", str(tmp_path))
     model = m.Model.load(str(tmp_path))
     assert len(model.roles) == 2
+
+
+# ---------- watchover entry point / usage guide ----------
+import re  # noqa: E402
+
+import watchover  # noqa: E402
+
+
+def test_usage_guide_is_generated_and_current():
+    with open(os.path.join(REPO, "docs/usage-guide.md"), encoding="utf-8") as fh:
+        assert fh.read() == watchover.render_markdown(), "run: scripts/watchover help --markdown > docs/usage-guide.md"
+
+
+def test_skill_md_lists_exactly_the_skill_commands():
+    skill = open(os.path.join(REPO, "skill/akeyless-watchover/SKILL.md"), encoding="utf-8").read()
+    section = skill.split("## Commands", 1)[1].split("\n## ", 1)[0]
+    listed = re.findall(r"^\| `([a-z-]+)` \|", section, flags=re.M)
+    assert listed == [c.name for c in watchover.SKILL_COMMANDS]
+
+
+@pytest.mark.parametrize("topic", [None, "skill"] + [t.name for t in watchover.TOOLS])
+def test_help_topics(topic, capsys):
+    assert watchover.main(["help"] + ([topic] if topic else [])) == 0
+    assert capsys.readouterr().out.strip()
+
+
+def test_every_tool_parameter_is_documented():
+    for t in watchover.TOOLS:
+        for flag, _value, _req, desc in watchover._params(t.parser()):
+            assert desc, f"{t.name} {flag} has no help text"
+
+
+def test_unknown_command_and_topic():
+    assert watchover.main(["nope"]) == 2
+    assert watchover.main(["help", "nope"]) == 2
+
+
+def test_dispatch_simulate():
+    assert watchover.main(["simulate", "--model", os.path.join(REPO, "terraform/model"),
+                           "--expectations", os.path.join(REPO, "terraform/model/access_expectations.yaml")]) == 0

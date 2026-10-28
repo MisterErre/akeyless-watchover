@@ -39,12 +39,16 @@ def run(model_dir: str, expectations_file: str, explain: bool = False) -> int:
     return 1 if failures else 0
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", required=True)
-    ap.add_argument("--expectations", required=True)
-    ap.add_argument("--explain", action="store_true")
-    a = ap.parse_args()
+    ap.add_argument("--model", required=True, help="model directory (terraform/model)")
+    ap.add_argument("--expectations", required=True, help="access_expectations.yaml")
+    ap.add_argument("--explain", action="store_true", help="print the matching rules for every check, not only failures")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> None:
+    a = build_parser().parse_args(argv)
     try:
         sys.exit(run(a.model, a.expectations, a.explain))
     except (ValueError, KeyError) as e:
