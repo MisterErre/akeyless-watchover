@@ -10,6 +10,6 @@ drift.txt
 !*.tfvars.example
 __pycache__/
 .pytest_cache/
-export/
+/export/
 terraform/tests/_guard_probe.tftest.hcl
 dist/

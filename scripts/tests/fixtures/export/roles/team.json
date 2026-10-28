@@ -1,0 +1,18 @@
+{
+  "role_name": "/governance/roles/payments/team-admin",
+  "comment": "Payments engineers",
+  "delete_protection": "true",
+  "rules": {"path_rules": [
+    {"path": "/payments/+/nonprod/*", "capabilities": ["read", "list", "create"], "type": "item-rule"},
+    {"path": "/payments/+/prod/break-glass/*", "capabilities": ["deny"], "type": "item-rule"},
+    {"path": "/scoped", "capabilities": ["read"], "type": "search-rule"},
+    {"path": "/*", "capabilities": ["read"], "type": "reports-rule"},
+    {"path": "/payments/tmp", "capabilities": ["read"], "type": "item-rule", "ttl": 30},
+    {"path": "/srv/*", "capabilities": ["sra_transparently_connect"], "type": "sra-rule"},
+    {"path": "/x", "capabilities": ["read"], "type": "brand-new-rule"}
+  ]},
+  "role_auth_methods_assoc": [
+    {"assoc_id": "ass-1", "auth_method_name": "/governance/auth/sso", "auth_method_sub_claims": {"groups": ["grp-a", "grp-b"]}, "sub_claims_case_sensitive": false},
+    {"assoc_id": "ass-2", "auth_method_name": "/governance/auth/ci-terraform", "auth_method_sub_claims": {}}
+  ]
+}

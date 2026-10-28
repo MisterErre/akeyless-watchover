@@ -1,0 +1,1 @@
+{"role_name": "/governance/roles/platform/god", "rules": {"path_rules": [{"path": "/*", "capabilities": ["read","list","create","update","delete"], "type": "item-rule"}]}}
