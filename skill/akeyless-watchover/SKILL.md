@@ -12,7 +12,7 @@ compatibility: >-
   pyyaml, Terraform >= 1.7 or OpenTofu >= 1.8, and the akeyless CLI or network access to the
   Akeyless API for live commands.
 metadata:
-  version: "1.5.0"
+  version: "1.5.1"
   repository: https://github.com/MisterErre/akeyless-watchover
 ---
 

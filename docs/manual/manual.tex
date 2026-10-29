@@ -1,6 +1,6 @@
-% akeyless-watchover manual. Build: python3 docs/manual/build.py  (from the repository root)
-% Hand-written: this file, chapters/*.tex, sessions/*.tex. Generated (never edit): generated/*.
-\documentclass[11pt,a4paper,openany]{report}
+% akeyless-watchover technical reference. Build: python3 docs/manual/build.py (from the repository root).
+% Hand-written: this file, appendix.tex, sessions/*.tex. Generated (never edit): generated/*.
+\documentclass[10pt,a4paper,openany]{report}
 
 % ---------------------------------------------------------------- fonts (XeLaTeX)
 \usepackage{fontspec}
@@ -9,34 +9,34 @@
 \IfFontExistsTF{DejaVu Sans Mono}{\setmonofont{DejaVu Sans Mono}[Scale=0.86]}{}
 
 % ---------------------------------------------------------------- layout
-\usepackage[margin=2.3cm,headheight=14pt]{geometry}
+\usepackage[margin=2cm,headheight=14pt]{geometry}
 \usepackage{xcolor}
 \definecolor{wo-accent}{HTML}{1F4E79}
 \definecolor{wo-rule}{HTML}{9DB4CC}
 \definecolor{wo-term}{HTML}{F4F6F8}
 \definecolor{wo-prompt}{HTML}{2E7D32}
-\definecolor{wo-warn}{HTML}{B45309}
 \usepackage{titlesec}
-\titleformat{\chapter}[display]{\sffamily\bfseries\color{wo-accent}\raggedright}{\large\chaptertitlename\ \thechapter}{4pt}{\huge}
-\titlespacing*{\chapter}{0pt}{0pt}{18pt}
-\titleformat{\section}{\sffamily\bfseries\Large\color{wo-accent}}{\thesection}{0.8em}{}
-\titleformat{\subsection}{\sffamily\bfseries\large}{\thesubsection}{0.8em}{}
-\titleformat{\subsubsection}{\sffamily\bfseries}{\thesubsubsection}{0.8em}{}
-\titleformat{\paragraph}[runin]{\sffamily\bfseries}{}{}{}[.]
-\setcounter{secnumdepth}{2}
+\titleformat{\chapter}[hang]{\sffamily\bfseries\huge\color{wo-accent}\raggedright}{\thechapter}{0.6em}{}
+\titlespacing*{\chapter}{0pt}{0pt}{12pt}
+\titleformat{\section}{\sffamily\bfseries\large\color{wo-accent}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\sffamily\bfseries}{\thesubsection}{0.7em}{}
+\titleformat{\paragraph}[runin]{\sffamily\bfseries\small}{}{}{}[.]
+\titlespacing*{\section}{0pt}{1.4em}{0.5em}
+\setcounter{secnumdepth}{1}
 \setcounter{tocdepth}{1}
 \usepackage{fancyhdr}
 \pagestyle{fancy}\fancyhf{}
-\fancyhead[L]{\sffamily\small\color{gray}akeyless-watchover \woversion}
-\fancyhead[R]{\sffamily\small\color{gray}\chaptername\ \thechapter}
+\fancyhead[L]{\sffamily\small\color{gray}akeyless-watchover \woversion{} -- technical reference}
+\fancyhead[R]{\sffamily\small\color{gray}\nouppercase{\leftmark}}
 \fancyfoot[C]{\sffamily\small\thepage}
 \renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
 \fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\sffamily\small\thepage}\renewcommand{\headrulewidth}{0pt}}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{0.55em plus 0.2em}
+\setlength{\parskip}{0.45em plus 0.2em}
 \usepackage{microtype}
 \setlength{\emergencystretch}{3em}
-% Long identifiers (paths, flags, snake_case keys) may break after / _ - . = , : (XeTeX interchar classes)
+% Long identifiers may break after / _ - . = , (XeTeX interchar classes)
 \XeTeXinterchartokenstate=1
 \newXeTeXintercharclass\wobreakclass
 \XeTeXcharclass`\/=\wobreakclass \XeTeXcharclass`\_=\wobreakclass \XeTeXcharclass`\-=\wobreakclass
@@ -44,105 +44,152 @@
 \XeTeXinterchartoks\wobreakclass 0={\penalty200\relax}
 
 % ---------------------------------------------------------------- tables, lists, code
-\usepackage{array,calc,booktabs,longtable,tabularx,multirow}
+\usepackage{array,booktabs,longtable,tabularx}
 \usepackage[shortlabels]{enumitem}
-\setlist{itemsep=0.15em,topsep=0.3em}
-\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setlist{itemsep=0.1em,topsep=0.2em}
 \usepackage{fvextra}
 \usepackage{upquote}
 \usepackage{listings}
-\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,breakatwhitespace=false,columns=fullflexible,
-  keepspaces=true,showstringspaces=false,frame=leftline,framerule=1.2pt,rulecolor=\color{wo-rule},
-  xleftmargin=6pt,framexleftmargin=4pt,backgroundcolor=\color{wo-term},aboveskip=0.6em,belowskip=0.6em,
-  literate={-}{-}1}
-\newcommand{\passthrough}[1]{#1}
-\usepackage{graphicx}
-\setkeys{Gin}{keepaspectratio}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,columns=fullflexible,keepspaces=true,
+  frame=leftline,framerule=1.2pt,rulecolor=\color{wo-rule},xleftmargin=6pt,framexleftmargin=4pt,
+  backgroundcolor=\color{wo-term},aboveskip=0.5em,belowskip=0.5em}
 \usepackage[most]{tcolorbox}
 \newtcolorbox{terminal}{enhanced,breakable,colback=wo-term,colframe=wo-rule,boxrule=0.5pt,arc=2pt,
-  left=5pt,right=5pt,top=3pt,bottom=3pt,before skip=0.4em,after skip=0.9em}
+  left=4pt,right=4pt,top=2pt,bottom=2pt,before skip=0.3em,after skip=0.6em}
 \newcommand{\exitcode}[1]{\par\vspace{-0.3em}{\hfill\sffamily\scriptsize\color{gray}exit code #1}}
-\newtcolorbox{note}[1][Note]{enhanced,breakable,colback=wo-accent!4,colframe=wo-accent,boxrule=0.5pt,
-  leftrule=3pt,arc=0pt,fonttitle=\sffamily\bfseries\small,coltitle=wo-accent,colbacktitle=wo-accent!4,
-  title={#1},attach title to upper={\ \ }}
-\newtcolorbox{warning}[1][Caution]{enhanced,breakable,colback=wo-warn!5,colframe=wo-warn,boxrule=0.5pt,
-  leftrule=3pt,arc=0pt,fonttitle=\sffamily\bfseries\small,coltitle=wo-warn,colbacktitle=wo-warn!5,
-  title={#1},attach title to upper={\ \ }}
 \newtcolorbox{session}[1]{enhanced,breakable,colback=white,colframe=wo-rule,boxrule=0.5pt,arc=2pt,
-  fonttitle=\sffamily\bfseries\small,coltitle=black,colbacktitle=wo-term,title={#1}}
+  fonttitle=\sffamily\bfseries\small,coltitle=black,colbacktitle=wo-term,title={#1},before skip=0.4em}
 \newcommand{\you}{\textsf{\textbf{\color{wo-accent}You}}\quad}
 \newcommand{\agent}{\textsf{\textbf{\color{wo-prompt}Agent}}\quad}
+% reference entry: label column + content
+\newenvironment{woentry}{\begin{description}[style=multiline,leftmargin=6.4em,labelwidth=6em,
+  font=\sffamily\bfseries\small\color{wo-accent},itemsep=0.25em]}{\end{description}}
+\newcommand{\refrow}[2]{\item[#1]#2}
 
 % ---------------------------------------------------------------- links
 \usepackage{xurl}
-\usepackage[hidelinks,bookmarksnumbered,pdfusetitle]{hyperref}
-\hypersetup{pdftitle={akeyless-watchover manual},pdfauthor={akeyless-watchover},colorlinks=true,linkcolor=wo-accent,urlcolor=wo-accent,citecolor=wo-accent}
-\usepackage{bookmark}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+\hypersetup{pdftitle={akeyless-watchover technical reference},colorlinks=true,linkcolor=wo-accent,urlcolor=wo-accent}
 
 \input{generated/version.tex}
-\title{akeyless-watchover\\[0.4em]\Large Akeyless governance as code: user and reference manual}
-\author{Kit and skill version \woversion}
-\date{\today}
 
 \begin{document}
 \pagenumbering{roman}
 \begin{titlepage}
-  \color{wo-accent}\sffamily
-  \vspace*{4cm}
-  {\fontsize{38}{44}\selectfont\bfseries akeyless-watchover\par}
-  \vspace{0.6cm}
-  {\LARGE Akeyless governance as code\par}
+  \sffamily\color{wo-accent}
+  \vspace*{5cm}
+  {\fontsize{32}{38}\selectfont\bfseries akeyless-watchover\par}
+  \vspace{0.4cm}
+  {\LARGE Technical reference\par}
   \vspace{0.3cm}
-  {\Large\color{black}User and reference manual\par}
-  \vspace{1.5cm}
-  {\large\color{black}RBAC and path design \textperiodcentered{} YAML model \textperiodcentered{} Terraform delivery
-   \textperiodcentered{} CLI and API \textperiodcentered{} brownfield export \textperiodcentered{} verification\par}
+  {\large\color{black}Skill commands \textperiodcentered{} kit commands \textperiodcentered{} options \textperiodcentered{} examples\par}
   \vfill
-  {\large\color{black}Version \woversion\hfill\today\par}
-  \vspace{0.3cm}
-  {\small\color{gray}Repository: \url{https://github.com/MisterErre/akeyless-watchover}\par}
+  {\color{black}Version \woversion\hfill\today\par}
+  {\small\color{gray}\url{https://github.com/MisterErre/akeyless-watchover}\par}
 \end{titlepage}
-
 \tableofcontents
-
 \clearpage
 \pagenumbering{arabic}
 
-\part{Getting started}\label{part:start}
-\input{chapters/introduction}
-\input{chapters/installation}
-\input{generated/docs/agents}
-\input{chapters/quickstart}
-\input{chapters/workflows}
+% ================================================================ 1
+\chapter{Overview}\label{ch:overview}
+akeyless-watchover manages the governance of an Akeyless account as code: paths, access roles,
+auth methods and sub-claims, account settings, PKI, event forwarders and Gateway administration,
+modelled in YAML and delivered by Terraform from one repository. It has two interfaces:
 
-\part{Concepts and design}\label{part:concepts}
-\input{generated/docs/architecture}
-\input{generated/docs/rbac-model}
-\input{generated/docs/path-and-role-design}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+& \textbf{Skill commands} (Chapter~\ref{ch:skill}) & \textbf{Kit commands} (Chapter~\ref{ch:kit}) \\ \midrule
+Used by & an AI agent (any agent and model) & you, CI, or an agent with a shell / MCP \\
+Syntax & \texttt{akeyless-watchover <command> [request]} & \texttt{scripts/watchover <command> [options]} \\
+Produces & designs, model diffs, reviews, exact commands & tests, simulations, exports, scaffolds, packages \\
+Runs where & in the conversation & in the governance repository \\
+\bottomrule
+\end{tabularx}
+\end{center}
 
-\part{Reference}\label{part:reference}
-\input{generated/commands}
-\input{generated/docs/model-reference}
-\input{generated/docs/terraform}
-\chapter{Terraform variables and outputs}\label{ch:variables}
-Generated from the \texttt{variable} and \texttt{output} blocks. Secrets are passed as
-\texttt{TF\_VAR\_<name>} environment variables from CI secrets (JSON for the maps), never in files.
-\input{generated/variables}
-\input{generated/docs/cli}
-\input{generated/docs/api-vs-cli}
+\paragraph{Notation} \texttt{<x>} required, \texttt{[x]} optional, \texttt{a|b} choice; \emph{repeatable}
+options may be given several times. \emph{Live} commands call Akeyless; all others are offline.
+\textbf{VERIFY} marks a fact no primary source confirms. Exit codes: 0 success, 1 check failed,
+2 usage or execution error (per command: each entry).
 
-\part{Operations}\label{part:operations}
-\input{generated/docs/pipeline}
-\input{generated/docs/testing-and-verification}
-\input{generated/docs/brownfield-import}
-\input{generated/docs/conjur-migration}
-\input{generated/docs/pki}
-\input{chapters/security}
-\input{chapters/troubleshooting}
-\input{chapters/maintenance}
-\input{generated/docs/limitations}
+\section{Command index}
+\begin{minipage}[t]{0.47\linewidth}\small
+\begin{tabularx}{\linewidth}{@{}lXr@{}}
+\toprule
+\textbf{Skill command} & & \textbf{p.} \\ \midrule
+\hyperref[skill:help]{\texttt{help}} & command reference & \pageref{skill:help} \\
+\hyperref[skill:design]{\texttt{design}} & diagram $\rightarrow$ model & \pageref{skill:design} \\
+\hyperref[skill:change]{\texttt{change}} & minimal access change & \pageref{skill:change} \\
+\hyperref[skill:review]{\texttt{review}} & review diff or plan & \pageref{skill:review} \\
+\hyperref[skill:pipeline]{\texttt{pipeline}} & repository + CI set-up & \pageref{skill:pipeline} \\
+\hyperref[skill:import]{\texttt{import}} & existing config $\rightarrow$ Terraform & \pageref{skill:import} \\
+\hyperref[skill:conjur]{\texttt{conjur}} & Conjur migration & \pageref{skill:conjur} \\
+\hyperref[skill:pki]{\texttt{pki}} & CA issuers, requesters & \pageref{skill:pki} \\
+\hyperref[skill:harden]{\texttt{harden}} & account hardening & \pageref{skill:harden} \\
+\hyperref[skill:gateway]{\texttt{gateway}} & Gateway admin, log forwarding & \pageref{skill:gateway} \\
+\hyperref[skill:verify]{\texttt{verify}} & who can access what & \pageref{skill:verify} \\
+\hyperref[skill:cli]{\texttt{cli}} & exact CLI commands & \pageref{skill:cli} \\
+\hyperref[skill:explain]{\texttt{explain}} & concepts, verified facts & \pageref{skill:explain} \\
+\bottomrule
+\end{tabularx}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\linewidth}\small
+\begin{tabularx}{\linewidth}{@{}lXlr@{}}
+\toprule
+\textbf{Kit command} & & & \textbf{p.} \\ \midrule
+\hyperref[kit:test]{\texttt{test}} & all offline checks & & \pageref{kit:test} \\
+\hyperref[kit:simulate]{\texttt{simulate}} & expectations vs model & & \pageref{kit:simulate} \\
+\hyperref[kit:verify]{\texttt{verify}} & expectations vs account & live & \pageref{kit:verify} \\
+\hyperref[kit:export]{\texttt{export}} & account $\rightarrow$ model / HCL & live & \pageref{kit:export} \\
+\hyperref[kit:forwarder]{\texttt{forwarder}} & event forwarder scaffold & & \pageref{kit:forwarder} \\
+\hyperref[kit:conjur]{\texttt{conjur}} & Conjur policy $\rightarrow$ roles & & \pageref{kit:conjur} \\
+\hyperref[kit:account-settings]{\texttt{account-settings}} & CLI-only settings & live & \pageref{kit:account-settings} \\
+\hyperref[kit:token]{\texttt{token}} & CI JWT $\rightarrow$ token & live & \pageref{kit:token} \\
+\hyperref[kit:build-skill]{\texttt{build-skill}} & skill package, prompt pack & & \pageref{kit:build-skill} \\
+\hyperref[kit:install-skill]{\texttt{install-skill}} & install for an agent & & \pageref{kit:install-skill} \\
+\hyperref[kit:validate-skill]{\texttt{validate-skill}} & check against the spec & & \pageref{kit:validate-skill} \\
+\hyperref[kit:mcp]{\texttt{mcp}} & MCP server & & \pageref{kit:mcp} \\
+\hyperref[kit:help]{\texttt{help}, \texttt{version}} & reference, version & & \pageref{kit:help} \\
+\bottomrule
+\end{tabularx}
+\end{minipage}
+
+% ================================================================ 2
+\chapter{Set-up}\label{ch:setup}
+\section{Kit}
+Requirements: Python 3.10+ with \texttt{pyyaml} (and \texttt{pytest} for \texttt{test}); Terraform
+$\geq$ 1.7 or OpenTofu $\geq$ 1.8; for live commands the \texttt{akeyless} CLI or \texttt{curl}+\texttt{jq}
+(\texttt{token}). Copy \texttt{terraform/}, \texttt{bootstrap/}, \texttt{scripts/} and the CI template
+from \texttt{ci/} into your governance repository; check with \texttt{scripts/watchover test}.
+
+\section{Skill, for any AI agent}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Agent supports} & \textbf{Do} \\ \midrule
+Agent Skills (Claude, Codex, Copilot, Cursor, Gemini CLI, \ldots) & \texttt{scripts/watchover install-skill --agent <agent>} (\ref{kit:install-skill}); in apps with a skills screen upload \texttt{dist/akeyless-watchover.zip} \\
+MCP (stdio) & register \texttt{python3 <kit>/scripts/watchover\_mcp.py --repo <governance repo>} (\ref{kit:mcp}) \\
+neither & prompt pack from \texttt{build-skill} (\ref{kit:build-skill}): \texttt{system-prompt.md} or \texttt{system-prompt-short.md} as instructions, \texttt{knowledge/} as files \\
+\bottomrule
+\end{tabularx}
+\end{center}
+Restart the agent after installing; test with \texttt{akeyless-watchover help}. Folders per agent:
+\texttt{install-skill} options; client snippets: \texttt{docs/agents.md}.
+
+\begin{lstlisting}
+# MCP registration examples (replace the paths)
+claude mcp add watchover -- python3 /kit/scripts/watchover_mcp.py --repo /governance
+gemini mcp add watchover python3 /kit/scripts/watchover_mcp.py --repo /governance
+# Codex ~/.codex/config.toml:  [mcp_servers.watchover] command="python3" args=["/kit/scripts/watchover_mcp.py","--repo","/governance"]
+# VS Code .vscode/mcp.json "servers" / Cursor .cursor/mcp.json and Claude Desktop "mcpServers": same command and args
+\end{lstlisting}
+
+% ================================================================ 3, 4
+\input{generated/skill}
+\input{generated/kit}
 
 \appendix
-\input{chapters/appendices}
-
+\input{appendix}
 \end{document}

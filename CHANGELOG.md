@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.1 - 2026-10-29
+
+Changed
+- The PDF is now a brief technical reference (24 pages, previously 109): an overview with a command index, set-up, a catalogue of skill commands and a catalogue of kit commands, and appendices (model files, guard messages, variables, files).
+  - Each skill command: syntax, what it does, what it delivers, how it works, and an example.
+  - Each kit command: synopsis, what it does, how it works, exit codes, environment, every option, usage examples and one real sample run.
+  - Topic documents stay in `docs/*.md` and are no longer copied into the PDF.
+- "How it works" and exit codes live in the code (`SKILL_HOW`, `TOOL_HOW`, `TOOL_EXITS`). They appear in `scripts/watchover help <command>`, in `docs/usage-guide.md` (now the same command reference in Markdown) and in the PDF; a test requires them for every command.
+- The forwarder presets are listed in the forwarder entry.
+- The README is shortened to a summary that points to the reference.
+- The manual build no longer needs pandoc or mermaid-cli.
+
 ## 1.5.0 - 2026-10-29
 
 Agent- and model-neutral skill (docs/agents.md).

@@ -580,3 +580,9 @@ def test_mcp_tool_errors_are_reported_not_raised():
                                                     "items_source": ["/*"]}}))
     r = out[1]["result"]
     assert r["isError"] is True and "gateway-source" in r["content"][0]["text"]
+
+
+def test_every_command_documents_how_it_works_and_exit_codes():
+    import watchover as wo
+    assert {c.name for c in wo.SKILL_COMMANDS} == set(wo.SKILL_HOW)
+    assert {t.name for t in wo.TOOLS} == set(wo.TOOL_HOW) == set(wo.TOOL_EXITS)

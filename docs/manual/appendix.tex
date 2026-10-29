@@ -1,0 +1,84 @@
+% Appendices of the technical reference (hand-written, except \input{generated/...}).
+\chapter{Model files}\label{app:model}
+All under \texttt{terraform/model/}. Every key: \texttt{docs/model-reference.md}. Secret values are never
+in the model: keys ending in \texttt{\_var} name entries of the sensitive \texttt{*\_secrets} variables.
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.22\linewidth}>{\raggedright\arraybackslash}p{0.33\linewidth}>{\raggedright\arraybackslash}p{0.4\linewidth}@{}}
+\toprule
+\textbf{File} & \textbf{Top-level keys} & \textbf{Defines} \\ \midrule\endhead
+\texttt{roles/<bu>.yaml} & \texttt{roles} & access roles: \texttt{rules} (path, capabilities, type), \texttt{associations} (auth method, sub-claims), management-plane attributes, \texttt{allow\_*} flags \\
+\texttt{auth\_methods.yaml} & \texttt{auth\_methods} & auth methods by type (oidc, saml, oauth2, aws\_iam, azure\_ad, k8s, universal\_identity, api\_key) and their bindings \\
+\texttt{folders.yaml} & \texttt{folders} & explicit item folders (description, delete protection) \\
+\texttt{governance.yaml} & \texttt{custom\_fields}, \texttt{key\_policies}, \texttt{account\_settings}, \texttt{account\_settings\_cli}, \texttt{event\_forwarders} & account policy; \texttt{account\_settings\_cli} is applied by \texttt{account-settings}, \texttt{event\_forwarders} written by \texttt{forwarder} \\
+\texttt{pki.yaml} & \texttt{ca\_keys}, \texttt{issuers} & private CA keys and certificate issuers \\
+\texttt{gateway.yaml} & \texttt{allowed\_access}, \texttt{log\_forwarding}, \texttt{migrations} & Gateway admin plane (needs \texttt{gateway\_api}) \\
+\texttt{access\_expectations.yaml} & \texttt{personas}, \texttt{checks} & expected access, read by \texttt{simulate} and \texttt{verify} \\
+\bottomrule
+\end{longtable}}
+
+\chapter{Guard messages}\label{app:guards}
+Preconditions that stop the plan before anything reaches Akeyless (\texttt{terraform\_data.model\_guards}).
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.4\linewidth}>{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\toprule
+\textbf{Message starts with} & \textbf{Fix} \\ \midrule\endhead
+Duplicate role name & keep the role in one \texttt{roles/*.yaml} file \\
+Object names must be absolute & leading \texttt{/}, no trailing \texttt{/} \\
+Role / Auth method names must start with & follow \texttt{var.naming}, or set the prefix to \texttt{""} \\
+Unknown auth method type & use a modelled type; others via \texttt{export --hcl} \\
+Unsupported rule type & item-, target-, role-, auth-method-, sra-rule (\texttt{ara-rule} needs \texttt{allow\_ara\_rules}) \\
+Invalid capability for the rule type & use the capabilities listed in the message \\
+A deny rule must contain only 'deny' & split deny and allow into two rules \\
+approval\_authority cannot be combined & approvers in a separate rule or role \\
+Root-scope rule & narrow the path, or \texttt{allow\_root\_scope: true} with a reason \\
+Invalid management-plane value & see \texttt{docs/model-reference.md} \\
+Association references an auth method that is not in & model it, or \texttt{allow\_external\_auth\_methods: true} \\
+Auth method has force\_sub\_claims = true & add \texttt{sub\_claims} to every association \\
+PKI issuer: \ldots & one of signer key / CA target; \texttt{auto\_renew} needs \texttt{destination\_path}; CRL/OCSP/ACME/public CA need \texttt{gw\_cluster\_url} \\
+custom\_fields.object\_type & STATIC\_SECRET, DYNAMIC\_SECRET or ROTATED\_SECRET \\
+event\_forwarders: type must be / runner\_type periodic / slack and teams need url\_var / of type teams require & valid type and events; \texttt{every} for periodic; \texttt{url\_var}; teams needs gateway sources and runner -- \texttt{forwarder} checks all of these \\
+model/gateway.yaml defines gateway objects & set \texttt{gateway\_api} \\
+gateway allowed\_access / log\_forwarding.type & valid permission; exactly one of auth\_method/access\_id; syslog or splunk \\
+\bottomrule
+\end{longtable}}
+
+\chapter{Variables}\label{app:env}
+\section{Environment}
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.34\linewidth}>{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Variable} & \textbf{Used by} \\ \midrule\endhead
+\texttt{AKEYLESS\_API} & \texttt{token}, \texttt{export --transport api}: API URL (default \texttt{https://api.akeyless.io}) \\
+\texttt{AKEYLESS\_ACCESS\_ID} & \texttt{token}: CI auth method access ID; with \texttt{AKEYLESS\_ACCESS\_KEY}: provider API-key login \\
+\texttt{CI\_JWT} & \texttt{token}: the CI-issued JWT \\
+\texttt{AKEYLESS\_TOKEN} & \texttt{export --transport api}, \texttt{account-settings}: token when \texttt{--token} is absent \\
+\texttt{TF\_VAR\_pipeline\_jwt}, \texttt{TF\_VAR\_pipeline\_access\_id} & Terraform login (CI) \\
+\texttt{TF\_VAR\_*\_secrets} & JSON maps for \texttt{*\_var} keys: auth methods, event forwarders, gateway \\
+\texttt{WATCHOVER\_REPO}, \texttt{WATCHOVER\_MCP\_LIVE} & \texttt{mcp}: kit root; \texttt{1} exposes live commands \\
+\bottomrule
+\end{longtable}}
+\section{Terraform input variables}
+\input{generated/variables}
+
+\chapter{Files}\label{app:files}
+\begin{lstlisting}
+terraform/   generic HCL (versions, main = loading + guards, auth_methods, roles, governance, pki,
+             gateway, outputs), model/ (YAML), tests/ (mocked-provider tests, fixtures, guard proofs)
+bootstrap/   one-time CI identity: OAuth2/JWT auth method + plan/apply roles (own state)
+scripts/     watchover + the tools it runs; tests/
+ci/          GitHub Actions and GitLab templates, CODEOWNERS example
+skill/       SKILL.md (Agent Skills format) + agents/openai.yaml sidecar
+docs/        topic documents (bundled in the skill as references/), this reference (manual/)
+dist/        build-skill output: akeyless-watchover/ (+ .zip), prompt-pack/ (+ .zip)
+\end{lstlisting}
+
+\paragraph{Sample runs}\label{sec:examples} The sample runs in Chapter~\ref{ch:kit} were executed by
+\texttt{docs/manual/build.py} when this PDF was built, in a copy of the repository. Live commands
+ran against a stand-in that answers from the test fixtures (\texttt{docs/manual/demo/}); the
+\texttt{verify} stand-in contains one console change, to show a mismatch. Long outputs are cut
+(\texttt{[... N lines omitted ...]}); temporary paths are shown as \texttt{.} or \texttt{<tmp>}.
+
+\paragraph{Further reading} \texttt{docs/}: \texttt{rbac-model.md} (authorization rules),
+\texttt{path-and-role-design.md}, \texttt{model-reference.md}, \texttt{terraform.md}, \texttt{pipeline.md},
+\texttt{cli.md}, \texttt{api-vs-cli.md}, \texttt{testing-and-verification.md}, \texttt{brownfield-import.md},
+\texttt{conjur-migration.md}, \texttt{pki.md}, \texttt{agents.md}, \texttt{limitations.md} (VERIFY items).

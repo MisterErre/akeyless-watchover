@@ -70,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--type", required=True, choices=TYPES, help="forwarder type")
     ap.add_argument("--description", help="description")
     ap.add_argument("--preset", action="append", default=[], choices=sorted(PRESETS),
-                    help="add a group of event types (repeatable); see 'Presets' in the usage guide")
+                    help="add a group of event types (repeatable); the events of each preset are listed under 'How it works'")
     ap.add_argument("--event", action="append", default=[], help="add one event type (repeatable)")
     ap.add_argument("--items-source", action="append", default=[], help="item path pattern to watch, e.g. '/pki/*' (repeatable)")
     ap.add_argument("--targets-source", action="append", default=[], help="target path pattern to watch (repeatable)")

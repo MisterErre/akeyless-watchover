@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to your AI agent). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -264,6 +264,108 @@ TOOLS: list[Tool] = [
 ]
 TOOL_BY_NAME = {t.name: t for t in TOOLS}
 
+# How each command works (shown by `help <command>`, the usage guide and the PDF reference).
+SKILL_HOW: dict[str, list[str]] = {
+    "help": ["Reads references/usage-guide.md (or the command table in SKILL.md).",
+             "With an argument, returns only that command's entry. Parameters are never invented."],
+    "design": ["Inventories BUs, applications, environments, data classes, personas and the identity source of each; "
+               "asks for whatever is missing.",
+               "Derives the path tree `/<bu>/<app>/<env>/...` (delegation boundary first, carve-outs such as "
+               "`break-glass` as fixed segments) and the access matrix persona x scope.",
+               "Creates one role per persona x scope x access level; binds humans through the SSO auth method + "
+               "`groups` sub-claims and workloads through one auth method per trust boundary.",
+               "Writes the model files and access_expectations.yaml, then runs `watchover simulate`/`test` "
+               "when it can run commands."],
+    "change": ["Finds the role file of the owning business unit (model/roles/<bu>.yaml).",
+               "Applies the smallest change: a rule, an association, narrower sub-claims - or a new role when no "
+               "existing role has the right audience.",
+               "Adds a positive and a negative expectation, simulates, and lists the CODEOWNERS approvers."],
+    "review": ["Checks the input against the guards, least privilege (root scope, removed deny rules, "
+               "associations without sub-claims) and plan red flags (replacements caused by renames).",
+               "Reports findings ranked by severity, with the missing expectations."],
+    "pipeline": ["Fills bootstrap.tfvars for the CI platform and repository, selects the CI template, lists the "
+                 "CI variables (masked or not) and the order of the steps."],
+    "import": ["Chooses the export mode (model or --hcl) and filters, and gives the `watchover export` command.",
+               "Reads REPORT.md and resolves every item (secrets, unsupported types, external references).",
+               "Iterates until the plan shows imports only."],
+    "conjur": ["Runs or gives `watchover conjur`; proposes an auth method and sub-claims for each Conjur host and "
+               "user in bindings.yaml; adds the Gateway migration entry and a cut-over plan."],
+    "pki": ["Writes pki.yaml (CA key, issuers: signer key or public CA target, domains, TTL, auto-renew), the "
+            "requester roles, an expiry forwarder and the CLI to issue and revoke."],
+    "harden": ["Splits the settings into the Terraform-managed subset (account_settings) and the CLI-only part "
+               "(account_settings_cli); adds custom fields, key policies and critical event forwarders.",
+               "Always starts with `watchover account-settings --dry-run`."],
+    "gateway": ["Writes gateway.yaml: allowed_access (auth method or access ID + permissions) and log forwarding "
+                "(syslog or splunk); sets gateway_api. One state per Gateway cluster."],
+    "verify": ["Evaluates access with the Akeyless rules (wildcards, deny precedence, sub-claims OR within a key / "
+               "AND across keys).",
+               "Writes the matching expectation checks and the commands that prove them offline (`simulate`) and "
+               "live (`verify`, Impersonate As)."],
+    "cli": ["Gives the exact `akeyless` commands, checked against the CLI reference, and the model change that "
+            "makes the result permanent (CLI changes to roles are reverted by the next apply)."],
+    "explain": ["Answers from the verified references; anything not confirmed by a primary source is marked VERIFY."],
+}
+
+TOOL_HOW: dict[str, list[str]] = {
+    "test": ["Runs, stopping at the first failure: fmt -check, init -backend=false, validate and `test` (mocked "
+             "provider) in terraform/ and bootstrap/; guard_messages.sh (each negative fixture fails with the "
+             "intended guard); export_roundtrip.sh; `simulate`; pytest."],
+    "simulate": ["Loads model/roles/*.yaml and auth_methods.yaml.",
+                 "For each check: selects the roles whose associations match the persona's auth method and "
+                 "claims; collects the rules of the right type whose path pattern matches (claim templates "
+                 "expanded); a matching deny removes everything.",
+                 "Compares the resulting capability set with `expect` (exact match)."],
+    "verify": ["For each check whose persona has a `profile`: runs `akeyless describe-permissions --path --type "
+               "--json --profile <persona>` and compares `client_permissions` with `expect`.",
+               "Personas without a profile are skipped and counted."],
+    "export": ["Reads the selected object families through the CLI (`--json`) or the REST API (token), following "
+               "pagination; filters by name, root folder, depth or persona.",
+               "Writes raw/ (JSON, secrets redacted) and REPORT.md (items needing a decision).",
+               "Model mode: model/*.imported.yaml + imports.tf for the kit. --hcl: hcl/imports.tf with one import "
+               "block per object; --generate runs `plan -generate-config-out` so Terraform writes the resources."],
+    "forwarder": ["Validates name, type, event types, sources and runner with the same rules as the Terraform guards.",
+                  "Builds the model entry; secrets become `*_var` keys of TF_VAR_event_forwarder_secrets.",
+                  "Prints YAML (default) or HCL; --write inserts the entry into governance.yaml without touching the "
+                  "rest of the file and refuses duplicates; --import-existing adds an import block (ID = name).",
+                  "Presets: " + "; ".join(f"{k} = {', '.join(v)}" for k, v in __import__("akl_forwarder").PRESETS.items()) + "."],
+    "conjur": ["Parses the policy files (!policy, !variable, !host, !layer, !group, !user, !permit, !grant), "
+               "resolving ids against their policy namespace.",
+               "Maps privileges to capabilities (execute -> read, read -> list, update -> update) on the migrated "
+               "item paths; one role per layer or group; nested grants are flattened.",
+               "Writes roles/conjur.yaml, bindings.yaml (host/user -> roles, auth method TODO) and REPORT.md."],
+    "account-settings": ["Reads account_settings_cli from governance.yaml; rejects unknown flags and keys Terraform manages.",
+                         "Builds one `akeyless update-account-settings` call (lists repeat the flag, booleans as "
+                         "=true/false); --dry-run prints it, otherwise runs it with --profile or --token."],
+    "token": ["POSTs {access-id, access-type: jwt, jwt} to <api>/auth and prints the token. No credential is stored."],
+    "build-skill": ["Copies SKILL.md (+ agents/ sidecar), docs/*.md as references/ and the kit as template/; "
+                    "validates the result; zips it.",
+                    "Writes the prompt pack: full and short system prompt + knowledge files."],
+    "install-skill": ["Builds the package in a temporary folder and copies it to the agent's skills folder "
+                      "(project or user scope, or --dest). Never overwrites without --force."],
+    "validate-skill": ["Checks SKILL.md: only specification fields; name 1-64 chars, lowercase/digits/hyphens, equal "
+                       "to the folder; description <= 1024; compatibility <= 500; metadata string -> string; body "
+                       "<= 500 lines; every references/*.md it mentions exists."],
+    "mcp": ["JSON-RPC 2.0 over stdin/stdout. Tools are generated from each command's options and run "
+            "`scripts/watchover <command>` in the kit root; output and exit code are returned.",
+            "Resources: SKILL.md, docs, model files. Prompts: one per skill command (skill instructions + request).",
+            "Commands that call Akeyless are listed only with --live."],
+}
+
+TOOL_EXITS: dict[str, str] = {
+    "test": "0 all passed; otherwise the exit code of the first failing step",
+    "simulate": "0 all met; 1 mismatch; 2 model error",
+    "verify": "0 all met; 1 mismatch; 2 CLI call failed",
+    "export": "0 written; 2 read/HTTP error or invalid options",
+    "forwarder": "0 written; 2 invalid input or duplicate (nothing written)",
+    "conjur": "0 written; 2 unreadable or invalid policy",
+    "account-settings": "0 applied/printed; 2 invalid settings; else the CLI's exit code",
+    "token": "0 token printed; 1 missing settings or authentication failed",
+    "build-skill": "0 written; 2 built skill invalid",
+    "install-skill": "0 installed; 2 target exists (no --force) or custom without --dest",
+    "validate-skill": "0 valid; 1 problems listed",
+    "mcp": "runs until the client closes stdin",
+}
+
 # --------------------------------------------------------------------------------------
 # Help rendering
 # --------------------------------------------------------------------------------------
@@ -316,8 +418,9 @@ def render_overview() -> str:
 
 def render_tool(t: Tool) -> str:
     p = t.parser()
-    out = [f"watchover {t.name} - {t.summary}", "", _first_line(p.description), "",
-           f"Needs an Akeyless account: {'yes' if t.needs_akeyless else 'no'}", "", "Parameters:"]
+    out = [f"watchover {t.name} - {t.summary}", "", "How it works:"] + [f"  - {h}" for h in TOOL_HOW.get(t.name, [])] + [
+           "", f"Needs an Akeyless account: {'yes' if t.needs_akeyless else 'no'}.  Exit codes: {TOOL_EXITS.get(t.name, '-')}",
+           "", "Parameters:"]
     rows = _params(p)
     if not rows:
         out.append("  (none)")
@@ -336,6 +439,7 @@ def render_skill() -> str:
            "Per-agent setup: docs/agents.md.", ""]
     for c in SKILL_COMMANDS:
         out += [f"  {c.name} {c.args}", f"      {c.purpose}", f"      delivers: {c.delivers}", f"      e.g. {c.example}", ""]
+    out.append("How each one works: scripts/watchover help --markdown, or the PDF reference.")
     return "\n".join(out).rstrip()
 
 
@@ -347,54 +451,45 @@ def _esc(text: str) -> str:
 
 def render_markdown() -> str:
     md = ["<!-- GENERATED by `scripts/watchover help --markdown` - edit scripts/watchover.py, not this file. -->",
-          f"# akeyless-watchover usage guide (v{VERSION})", "",
-          "Two ways to use akeyless-watchover:", "",
-          "1. **Talk to your AI agent** with the skill installed (any agent: see [agents.md](agents.md)): use a *skill command*",
-          "   (below) or just describe the task.",
-          "2. **Run the kit** in your governance repository with `scripts/watchover <command>` (Python 3.10+, `pyyaml`;",
-          "   Terraform >= 1.7 or OpenTofu >= 1.8; the `akeyless` CLI for live commands).", "",
-          "`scripts/watchover help` prints everything in this guide in the terminal.", "",
-          "## 1. Skill commands (any AI agent)", "",
-          "Write `akeyless-watchover <command> [args]`, or your agent's skill syntax (`/akeyless-watchover ...`,",
-          "`$akeyless-watchover ...`); MCP clients offer them as prompts `watchover-<command>`. Or simply describe the",
-          "task; the skill also triggers without a command. Set-up per agent: [agents.md](agents.md).", "",
-          "| Command | Arguments | Purpose | Delivers | Example |", "|---|---|---|---|---|"]
+          f"# akeyless-watchover command reference (v{VERSION})", "",
+          "Two interfaces:", "",
+          "- **Skill commands** - typed to an AI agent that has the skill: `akeyless-watchover <command> [args]` "
+          "(or the agent's skill syntax, e.g. `/akeyless-watchover`, `$akeyless-watchover`; MCP prompt "
+          "`watchover-<command>`). Set-up per agent: [agents.md](agents.md).",
+          "- **Kit commands** - run in the governance repository: `scripts/watchover <command> [options]` "
+          "(Python 3.10+ with pyyaml; Terraform >= 1.7 or OpenTofu >= 1.8; the akeyless CLI for live commands).", "",
+          "Notation: `<x>` required, `[x]` optional, `a|b` choice. *Live* = calls Akeyless.", "",
+          "## Index", "", "| Skill command | Purpose |", "|---|---|"]
+    md += [f"| [`{c.name}`](#skill-{c.name}) | {_esc(c.purpose)} |" for c in SKILL_COMMANDS]
+    md += ["", "| Kit command | Purpose | Live |", "|---|---|---|"]
+    md += [f"| [`{t.name}`](#kit-{t.name}) | {_esc(t.summary)} | {'yes' if t.needs_akeyless else 'no'} |" for t in TOOLS]
+    md += ["| `help [command|skill] [--markdown]` | This reference in the terminal. | no |".replace("|skill", "\\|skill"),
+           "| `version` | Print the version. | no |", "", "## Skill commands", ""]
     for c in SKILL_COMMANDS:
-        md.append(f"| `{c.name}` | {_esc(c.args)} | {_esc(c.purpose)} | {_esc(c.delivers)} | `{c.example}` |")
-    md += ["", "## 2. Kit commands (`scripts/watchover`)", "",
-           "| Command | Summary | Needs Akeyless |", "|---|---|---|"]
-    for t in TOOLS:
-        md.append(f"| [`{t.name}`](#watchover-{t.name}) | {_esc(t.summary)} | {'yes' if t.needs_akeyless else 'no'} |")
-    md += ["| `help [command\\|skill] [--markdown]` | Help in the terminal; `--markdown` regenerates this guide. | no |",
-           "| `version` | Print the version. | no |", ""]
+        md += [f'<a id="skill-{c.name}"></a>', f"### {c.name}", "",
+               f"`akeyless-watchover {c.name} {c.args}`", "",
+               f"**Does:** {c.purpose}  ", f"**Delivers:** {c.delivers}", "", "**How it works:**", ""]
+        md += [f"- {h}" for h in SKILL_HOW.get(c.name, [])]
+        md += ["", f"**Example:** `{c.example}`", ""]
+    md += ["## Kit commands", ""]
     for t in TOOLS:
         p = t.parser()
-        md += [f"### watchover {t.name}", "", _esc(_first_line(p.description) or t.summary), ""]
+        md += [f'<a id="kit-{t.name}"></a>', f"### {t.name}", "",
+               f"`scripts/watchover {t.name} [options]` - {_esc(t.summary)} "
+               f"{'*Live.*' if t.needs_akeyless else '*Offline.*'}", "", "**How it works:**", ""]
+        md += [f"- {h}" for h in TOOL_HOW.get(t.name, [])]
         rows = _params(p)
+        md.append("")
         if rows:
-            md += ["| Parameter | Value | Required / default | Description |", "|---|---|---|---|"]
+            md += ["| Option | Value | Required / default | Description |", "|---|---|---|---|"]
             md += [f"| `{f}` | {_esc(v)} | {_esc(r)} | {_esc(d)} |" for f, v, r, d in rows]
         else:
-            md.append("No parameters.")
+            md.append("No options.")
         if t.env:
             md += ["", "| Environment variable | Meaning |", "|---|---|"] + [f"| `{k}` | {v} |" for k, v in t.env]
-        md += ["", "```bash"] + t.examples + ["```", ""]
-    md += ["## 3. Typical sessions", "",
-           "**New design**", "```text", "akeyless-watchover design <diagram>",
-           "-> review the five artifacts -> commit model changes -> scripts/watchover test -> merge request", "```", "",
-           "**Access change**", "```text", "akeyless-watchover change <request>",
-           "-> scripts/watchover simulate ... -> merge request (plan in CI) -> merge (apply)", "```", "",
-           "**Existing account**", "```text", "scripts/watchover export --out export/ --profile admin ...",
-           "akeyless-watchover import export/REPORT.md -> move files -> plan shows only imports -> apply", "```", "",
-           "**Conjur**", "```text", "scripts/watchover conjur policy.yml --out export/conjur",
-           "akeyless-watchover conjur export/conjur/bindings.yaml -> fill bindings -> gateway migration -> cut-over", "```", "",
-           "## 4. Exit codes", "",
-           "| Code | Meaning |", "|---|---|",
-           "| 0 | success / all expectations met |",
-           "| 1 | check failed (mismatch, drift, failed step) |",
-           "| 2 | usage, model or execution error |", "",
-           "More: [model-reference.md](model-reference.md) for every YAML key, [cli.md](cli.md) for raw Akeyless CLI",
-           "commands, [testing-and-verification.md](testing-and-verification.md)."]
+        md += ["", f"**Exit codes:** {TOOL_EXITS.get(t.name, '-')}", "", "```bash"] + t.examples + ["```", ""]
+    md += ["## Exit codes (all kit commands)", "", "0 success - 1 check failed (mismatch, invalid skill) - "
+           "2 usage, input or execution error. Per command: see each entry."]
     return "\n".join(md) + "\n"
 
 
