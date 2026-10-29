@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0 - 2026-10-29
+
+Added
+- `watchover export` reads every exportable object family: roles, auth methods (all types), explicit folders, custom fields, key policies, PKI issuers and account settings.
+- Model mode now translates type-specific auth method settings: OIDC (issuer, client ID, redirect URIs, scopes...), SAML, OAuth2/JWT, AWS IAM, Azure AD, K8s and Universal Identity. The field mapping comes from the provider's read code. Model mode also covers folders, custom fields and key policies.
+- `--hcl` mode writes flat import blocks for every object. With `--generate` it runs `terraform plan -generate-config-out` so Terraform writes plain HCL itself. This includes PKI issuers, account settings and the GCP/LDAP/cert/OCI/AliCloud/Kerberos/email auth methods.
+- Filters: `--types`, `--only`, `--exclude`, `--root`, `--max-depth`, and a persona view (`--persona-auth-method` plus `--persona-claim`) that exports one user's auth method and the roles they reach.
+- Secrets are redacted in `raw/`, and `raw/` can be replayed offline with `--from-dir`.
+
+Fixed
+- `naming` prefixes are now disabled with `""`. `null` falls back to the default because of `optional(string, default)`, so the old documented way did not work. A test covers it.
+
 ## 1.1.0 - 2026-10-28
 
 Added

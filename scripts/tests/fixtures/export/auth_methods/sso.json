@@ -1,1 +1,27 @@
-{"auth_method_name": "/governance/auth/sso", "access_info": {"rules_type": "oidc", "force_sub_claims": true, "jwt_ttl": 60, "cidr_whitelist": "10.0.0.0/8, 192.168.0.0/16", "audit_logs_claims": ["email"]}, "delete_protection": "true"}
+{
+  "auth_method_name": "/governance/auth/sso",
+  "auth_method_access_id": "p-sso",
+  "delete_protection": "true",
+  "description": "Entra SSO",
+  "access_info": {
+    "rules_type": "oidc",
+    "force_sub_claims": true,
+    "jwt_ttl": 60,
+    "cidr_whitelist": "10.0.0.0/8, 192.168.0.0/16",
+    "audit_logs_claims": [
+      "email"
+    ],
+    "oidc_access_rules": {
+      "issuer": "https://login.microsoftonline.com/t/v2.0",
+      "client_id": "cid",
+      "client_secret": "s3cr3t",
+      "unique_identifier": "email",
+      "allowed_redirect_URIs": [
+        "https://console.akeyless.io"
+      ],
+      "required_scopes": [
+        "openid"
+      ]
+    }
+  }
+}

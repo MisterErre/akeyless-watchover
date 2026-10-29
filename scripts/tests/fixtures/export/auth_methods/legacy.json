@@ -1,1 +1,9 @@
-{"auth_method_name": "/legacy/apikey", "access_info": {"rules_type": "api_key"}}
+{
+  "auth_method_name": "/legacy/apikey",
+  "access_info": {
+    "api_key_access_rules": {
+      "alg": "rsa2048",
+      "key": "PUBLICKEYDATA"
+    }
+  }
+}

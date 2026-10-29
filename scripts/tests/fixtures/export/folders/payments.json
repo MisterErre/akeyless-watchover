@@ -1,0 +1,10 @@
+{
+  "folder": {
+    "folder_name": "/payments",
+    "metadata": "Payments BU",
+    "tags": [
+      "bu:payments"
+    ],
+    "delete_protection": true
+  }
+}

@@ -29,7 +29,7 @@ variable "gateway_secrets" {
 }
 
 variable "naming" {
-  description = "Naming policy enforced by the guards. Set a prefix to null to disable that check."
+  description = "Naming policy enforced by the guards. Set a prefix to \"\" to disable that check (null falls back to the default)."
   type = object({
     role_prefix        = optional(string, "/governance/roles/")
     auth_method_prefix = optional(string, "/governance/auth/")
@@ -140,11 +140,11 @@ resource "terraform_data" "model_guards" {
       error_message = "Object names must be absolute (leading '/') and must not end with '/'."
     }
     precondition {
-      condition     = var.naming.role_prefix == null || alltrue([for n in keys(local.roles) : startswith(n, var.naming.role_prefix)])
+      condition     = var.naming.role_prefix == "" || alltrue([for n in keys(local.roles) : startswith(n, var.naming.role_prefix)])
       error_message = "Role names must start with the configured naming.role_prefix."
     }
     precondition {
-      condition     = var.naming.auth_method_prefix == null || alltrue([for n in keys(local.auth_methods) : startswith(n, var.naming.auth_method_prefix)])
+      condition     = var.naming.auth_method_prefix == "" || alltrue([for n in keys(local.auth_methods) : startswith(n, var.naming.auth_method_prefix)])
       error_message = "Auth method names must start with the configured naming.auth_method_prefix."
     }
     precondition {

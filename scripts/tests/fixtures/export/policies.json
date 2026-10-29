@@ -1,0 +1,16 @@
+{
+  "policies": [
+    {
+      "id": "pol-1",
+      "path": "/payments/*",
+      "type": "keys",
+      "allowed_algorithms": [
+        "AES256GCM"
+      ],
+      "max_rotation_interval_days": 365,
+      "object_types": [
+        "items"
+      ]
+    }
+  ]
+}

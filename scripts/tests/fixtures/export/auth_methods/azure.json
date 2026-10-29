@@ -1,0 +1,12 @@
+{
+  "auth_method_name": "/governance/auth/azure-prod",
+  "access_info": {
+    "azure_ad_access_rules": {
+      "bound_tenant_id": "tid",
+      "bound_service_principal_ids": [
+        "sp1"
+      ],
+      "ad_endpoint": "https://management.azure.com/"
+    }
+  }
+}

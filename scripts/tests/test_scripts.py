@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -112,29 +113,105 @@ def test_account_settings_reference_dry_run():
 
 
 # ---------- exporter ----------
-def test_export_offline(tmp_path):
-    r = run("scripts/akl_export.py", "--out", str(tmp_path), "--from-dir", os.path.join(HERE, "fixtures/export"),
-            "--exclude", "^/governance/auth/ci-terraform$")
+FX = os.path.join(HERE, "fixtures/export")
+
+
+def export(tmp_path, *args):
+    return run("scripts/akl_export.py", "--out", str(tmp_path), "--from-dir", FX, *args)
+
+
+def test_export_model_mode(tmp_path):
+    r = export(tmp_path, "--exclude", "^/governance/auth/ci-terraform$")
     assert r.returncode == 0, r.stderr
     roles = yaml.safe_load(open(tmp_path / "model/roles/imported.yaml"))["roles"]
     team = roles["/governance/roles/payments/team-admin"]
     assert team["audit_access"] == "scoped" and team["analytics_access"] == "all"
     assert {"path": "/srv/*", "capabilities": ["allow_access"], "type": "sra-rule"} in team["rules"]
-    assert not any(ru["path"] == "/payments/tmp" for ru in team["rules"])  # ttl rule skipped
-    assert not any(ru["path"] == "/x" for ru in team["rules"])  # unknown type skipped
-    assert team["associations"][0] == {"auth_method": "/governance/auth/sso", "sub_claims": {"groups": ["grp-a", "grp-b"]}, "case_sensitive": False}
+    assert not any(ru["path"] in ("/payments/tmp", "/x") for ru in team["rules"])  # ttl + unknown type skipped
+    assert team["associations"][0] == {"auth_method": "/governance/auth/sso", "sub_claims": {"groups": ["grp-a", "grp-b"]},
+                                       "case_sensitive": False}
     assert team["allow_external_auth_methods"] is True  # ci-terraform excluded
     assert roles["/governance/roles/platform/god"]["allow_root_scope"] is True
     ams = yaml.safe_load(open(tmp_path / "model/auth_methods.imported.yaml"))["auth_methods"]
-    assert ams["/governance/auth/sso"]["bound_ips"] == ["10.0.0.0/8", "192.168.0.0/16"]
+    sso = ams["/governance/auth/sso"]
+    assert sso["type"] == "oidc" and sso["issuer"].startswith("https://login") and sso["client_id"] == "cid"
+    assert sso["allowed_redirect_uri"] == ["https://console.akeyless.io"] and sso["unique_identifier"] == "email"
+    assert sso["bound_ips"] == ["10.0.0.0/8", "192.168.0.0/16"] and sso["client_secret_var"] == "governance_auth_sso_client_secret"
+    assert "client_secret" not in sso
+    assert ams["/governance/auth/aws-payments-prod"] == {"type": "aws_iam", "bound_aws_account_id": ["123456789012"],
+                                                         "bound_role_name": ["payments-app"], "sts_url": "https://sts.amazonaws.com"}
+    az = ams["/governance/auth/azure-prod"]
+    assert az["bound_spid"] == ["sp1"] and az["audience"] == "https://management.azure.com/"
+    assert ams["/governance/auth/k8s-prod"]["bound_sa_names"] == ["api"]
     assert ams["/legacy/kerb"]["type"].startswith("TODO")
-    assert "/governance/auth/ci-terraform" not in ams
+    folders = yaml.safe_load(open(tmp_path / "model/folders.imported.yaml"))["folders"]
+    assert folders == {"/payments": {"description": "Payments BU", "tags": ["bu:payments"], "delete_protection": True}}
+    gov = yaml.safe_load(open(tmp_path / "model/governance.imported.yaml"))
+    assert gov["custom_fields"]["owner-static-secret"]["required"] is True
+    assert gov["key_policies"]["/payments/*"]["allowed_algorithms"] == ["AES256GCM"]
     imports = open(tmp_path / "imports.tf").read()
-    assert 'to = akeyless_auth_method_oidc.this["/governance/auth/sso"]' in imports
-    assert 'id = "/governance/roles/payments/team-admin:/governance/auth/sso"' in imports
+    for needle in ('to = akeyless_auth_method_oidc.this["/governance/auth/sso"]',
+                   'id = "/governance/roles/payments/team-admin:/governance/auth/sso"',
+                   'to = akeyless_folder.this["/payments"]',
+                   'to = akeyless_account_custom_field.this["owner-static-secret"]\n  id = "101"',
+                   'to = akeyless_policy_keys.this["/payments/*"]\n  id = "pol-1"'):
+        assert needle in imports, needle
     assert "kerb" not in imports
     report = open(tmp_path / "REPORT.md").read()
-    assert "brand-new-rule" in report and "temporary rule" in report
+    for needle in ("brand-new-rule", "temporary rule", "client secret not exported", "PKI issuer", "4 discovered"):
+        assert needle in report, needle
+
+
+def test_export_never_writes_secrets(tmp_path):
+    export(tmp_path)
+    for root, _dirs, files in os.walk(tmp_path):
+        for f in files:
+            text = open(os.path.join(root, f)).read()
+            assert "s3cr3t" not in text and "PUBLICKEYDATA" not in text, f
+    raw = json.load(open(tmp_path / "raw/auth_methods/governance_auth_sso.json"))
+    assert raw["access_info"]["oidc_access_rules"]["client_secret"] == "<redacted>"
+
+
+@pytest.mark.parametrize("claim,expected", [
+    ("groups=grp-a", ["/governance/roles/payments/team-admin"]),
+    ("groups=GRP-B", ["/governance/roles/payments/team-admin"]),      # association is case-insensitive
+    ("groups=grp-auditors", ["/governance/roles/platform/auditors"]),
+    ("groups=nobody", []),
+])
+def test_export_persona_view(tmp_path, claim, expected):
+    r = export(tmp_path, "--persona-auth-method", "/governance/auth/sso", "--persona-claim", claim)
+    assert r.returncode == 0, r.stderr
+    roles = yaml.safe_load(open(tmp_path / "model/roles/imported.yaml"))["roles"]
+    assert sorted(roles) == expected
+    ams = yaml.safe_load(open(tmp_path / "model/auth_methods.imported.yaml"))["auth_methods"]
+    assert list(ams) == ["/governance/auth/sso"]
+
+
+def test_export_types_and_only(tmp_path):
+    r = export(tmp_path, "--types", "auth-methods", "--only", "aws|azure")
+    assert r.returncode == 0, r.stderr
+    ams = yaml.safe_load(open(tmp_path / "model/auth_methods.imported.yaml"))["auth_methods"]
+    assert sorted(ams) == ["/governance/auth/aws-payments-prod", "/governance/auth/azure-prod"]
+    assert yaml.safe_load(open(tmp_path / "model/roles/imported.yaml"))["roles"] == {}
+
+
+def test_export_hcl_mode(tmp_path):
+    r = export(tmp_path, "--hcl")
+    assert r.returncode == 0, r.stderr
+    imports = open(tmp_path / "hcl/imports.tf").read()
+    assert imports.count("import {") == 18
+    for needle in ("to = akeyless_auth_method_kerberos.legacy_kerb", "to = akeyless_pki_cert_issuer.pki_issuers_payments_server",
+                   "to = akeyless_account_settings.account_settings", "to = akeyless_policy_keys.payments\n",
+                   'id = "/governance/roles/payments/team-admin:/governance/auth/ci-terraform"'):
+        assert needle in imports, needle
+    assert "api_gateway_address" in open(tmp_path / "hcl/providers.tf").read()
+    assert not (tmp_path / "imports.tf").exists()
+
+
+@pytest.mark.parametrize("args", [["--types", "secrets"], ["--generate"], ["--persona-claim", "a=b"],
+                                  ["--persona-auth-method", "/x", "--persona-claim", "novalue"]])
+def test_export_usage_errors(tmp_path, args):
+    assert export(tmp_path, *args).returncode == 2
 
 
 # ---------- conjur ----------

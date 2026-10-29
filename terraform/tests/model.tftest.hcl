@@ -172,3 +172,15 @@ run "empty_gateway_api_is_unset" {
   variables { gateway_api = "" }
   expect_failures = [terraform_data.model_guards]
 }
+
+run "naming_check_disabled_with_empty_string" {
+  command = plan
+  variables {
+    model_dir = "tests/fixtures/bad_prefix"
+    naming    = { role_prefix = "", auth_method_prefix = "" }
+  }
+  assert {
+    condition     = length(akeyless_role.this) == 1
+    error_message = "bad_prefix fixture should plan when naming checks are disabled"
+  }
+}

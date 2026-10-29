@@ -51,6 +51,7 @@ jobs:
           terraform validate
           terraform test
           tests/guard_messages.sh terraform
+          tests/export_roundtrip.sh terraform
       - name: Offline access expectations
         run: python3 scripts/akl_simulate.py --model terraform/model --expectations terraform/model/access_expectations.yaml
       - name: Script tests

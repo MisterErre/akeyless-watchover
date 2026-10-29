@@ -1,0 +1,14 @@
+{
+  "auth_method_name": "/governance/auth/aws-payments-prod",
+  "access_info": {
+    "aws_iam_access_rules": {
+      "account_id": [
+        "123456789012"
+      ],
+      "role_name": [
+        "payments-app"
+      ],
+      "sts_endpoint": "https://sts.amazonaws.com"
+    }
+  }
+}

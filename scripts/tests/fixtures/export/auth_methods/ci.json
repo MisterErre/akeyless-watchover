@@ -1,1 +1,9 @@
-{"auth_method_name": "/governance/auth/ci-terraform", "access_info": {"rules_type": "oauth2"}}
+{
+  "auth_method_name": "/governance/auth/ci-terraform",
+  "access_info": {
+    "oauth2_access_rules": {
+      "jwks_uri": "https://token.actions.githubusercontent.com/.well-known/jwks",
+      "unique_identifier": "repository"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "item_name": "/pki/issuers/payments-server",
+  "item_type": "PKI_CERT_ISSUER",
+  "item_general_info": {
+    "cert_issue_details": {
+      "pki_cert_issuer_details": {
+        "allowed_domains_list": [
+          "payments.internal"
+        ]
+      }
+    }
+  }
+}

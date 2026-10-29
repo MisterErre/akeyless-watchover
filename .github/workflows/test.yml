@@ -19,6 +19,7 @@ jobs:
       - if: matrix.tool == 'tofu'
         uses: opentofu/setup-opentofu@v1
         with: { tofu_wrapper: false }
+      - run: pip install pyyaml
       - name: terraform/ (reference implementation)
         working-directory: terraform
         run: |
@@ -27,6 +28,7 @@ jobs:
           ${{ matrix.tool }} validate
           ${{ matrix.tool }} test
           tests/guard_messages.sh ${{ matrix.tool }}
+          tests/export_roundtrip.sh ${{ matrix.tool }}
       - name: bootstrap/
         working-directory: bootstrap
         run: |

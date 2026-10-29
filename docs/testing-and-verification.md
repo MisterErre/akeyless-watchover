@@ -3,10 +3,10 @@
 | Layer | Tool | Needs Akeyless? | Runs |
 |---|---|---|---|
 | Syntax/types | `terraform fmt -check`, `validate` | no | every PR |
-| Model rules | `terraform test` (mocked provider, 18 runs) | no | every PR |
+| Model rules | `terraform test` (mocked provider, 19 runs) | no | every PR |
 | Guard intent | `terraform/tests/guard_messages.sh` | no | every PR |
 | Effective access (model semantics) | `scripts/akl_simulate.py` | no | every PR |
-| Tooling + usage-guide drift | `pytest scripts/tests` (39 tests) | no | every PR |
+| Tooling + usage-guide drift | `pytest scripts/tests` (50 tests) | no | every PR |
 | Bootstrap | `bootstrap/tests` (3 runs) | no | repo CI |
 | Plan review | `terraform plan` | yes (plan identity) | every PR |
 | Effective access (platform truth) | `scripts/akl_verify.py` / Console Impersonate As | yes | after apply |

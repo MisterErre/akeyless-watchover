@@ -1,1 +1,8 @@
-{"auth_method_name": "/legacy/kerb", "access_info": {"rules_type": "kerberos"}}
+{
+  "auth_method_name": "/legacy/kerb",
+  "access_info": {
+    "kerberos_access_rules": {
+      "realm": "EX.COM"
+    }
+  }
+}

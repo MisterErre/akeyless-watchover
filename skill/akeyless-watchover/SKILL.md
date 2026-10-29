@@ -39,7 +39,7 @@ Map plain requests to the closest command. Without arguments, ask for the one mi
 | `change` | <access request in plain words> | Diff of model/roles/<bu>.yaml (and auth_methods.yaml if needed), new expectations, who must approve (CODEOWNERS). |
 | `review` | <model files, merge-request diff or plan output> | Findings by severity, failing guards, missing expectations, plan red flags (replacements). |
 | `pipeline` | [github / gitlab] [repository] | bootstrap.tfvars, CI file, variables to create, step-by-step order. |
-| `import` | [export directory or REPORT.md] | The `watchover export` command to run, then resolution of every REPORT.md item and the import plan checklist. |
+| `import` | [what to export: everything / a type / one user's view] [export directory or REPORT.md] | The exact `watchover export` command (model or --hcl mode, filters), then resolution of every REPORT.md item and the import checklist until the plan shows imports only. |
 | `conjur` | <Conjur policy YAML> | Translated roles, bindings to fill (auth method + sub-claims), migration resource, cut-over plan. |
 | `pki` | <certificate requirements> | pki.yaml (CA keys, issuers), requester roles, expiry forwarder, CLI to issue/revoke. |
 | `harden` | [current settings or concerns] | governance.yaml: account_settings (Terraform), account_settings_cli (CLI), custom fields, key policies, event forwarders. |
@@ -136,7 +136,7 @@ Workflows:
 | "Design RBAC for this diagram" | §2 -> edit `model/roles/*.yaml`, `auth_methods.yaml`, `access_expectations.yaml` -> run offline tests -> show the five artifacts |
 | "Add/change access for team X" | change only that BU's role file + expectations; mention CODEOWNERS approval |
 | "Set up the repo/pipeline" | `bootstrap/` once (admin), copy `ci/` template, set variables (references/pipeline.md) |
-| "Import what we already have" | `scripts/akl_export.py` -> REPORT.md -> import blocks -> plan with no changes (references/brownfield-import.md) |
+| "Import / export what we already have" | `watchover export`: model mode (YAML + import blocks for terraform/) or `--hcl` (Terraform writes plain HCL via `plan -generate-config-out`); filters `--types`, `--only`, `--persona-auth-method/--persona-claim` (one user's view) -> REPORT.md -> plan shows imports only (references/brownfield-import.md) |
 | "Migrate from Conjur" | Gateway migration for values + `scripts/conjur2akeyless.py` for RBAC (references/conjur-migration.md) |
 | "Certificates" | `pki.yaml` ca_keys/issuers + requester roles + expiry forwarder (references/pki.md) |
 | "Prove who can access what" | `akl_simulate.py` offline, `akl_verify.py` live with persona profiles, Impersonate As |

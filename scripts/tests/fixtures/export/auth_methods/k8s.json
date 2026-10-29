@@ -1,0 +1,14 @@
+{
+  "auth_method_name": "/governance/auth/k8s-prod",
+  "access_info": {
+    "k8s_access_rules": {
+      "bound_namespaces": [
+        "payments"
+      ],
+      "bound_service_account_names": [
+        "api"
+      ],
+      "pub_key": "PUB"
+    }
+  }
+}

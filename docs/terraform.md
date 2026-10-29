@@ -23,7 +23,7 @@ Terraform. Requires Terraform >= 1.7 or OpenTofu >= 1.8.
 | `akeyless_api` | default `https://api.akeyless.io` |
 | `gateway_api` | Gateway API for gateway objects; `null` or `""` disables them |
 | `auth_method_secrets`, `event_forwarder_secrets`, `gateway_secrets` | sensitive maps referenced by `*_var` keys |
-| `naming` | `role_prefix` / `auth_method_prefix` (set to `null` to disable) |
+| `naming` | `role_prefix` / `auth_method_prefix` (set to `""` to disable; `null` means the default) |
 | `allow_ara_rules` | opt-in for `ara-rule` |
 | `model_dir` | model location (tests point it to fixtures) |
 

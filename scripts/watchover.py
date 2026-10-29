@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to Claude). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -62,11 +62,12 @@ SKILL_COMMANDS: list[SkillCommand] = [
                  "Set up the governance repository: bootstrap identity, CI, CODEOWNERS, state.",
                  "bootstrap.tfvars, CI file, variables to create, step-by-step order.",
                  "/akeyless-watchover pipeline gitlab group/akeyless-governance"),
-    SkillCommand("import", "[export directory or REPORT.md]",
-                 "Bring an existing Akeyless account under code (brownfield).",
-                 "The `watchover export` command to run, then resolution of every REPORT.md item and the "
-                 "import plan checklist.",
-                 "/akeyless-watchover import"),
+    SkillCommand("import", "[what to export: everything / a type / one user's view] [export directory or REPORT.md]",
+                 "Export existing config (RBAC, auth methods incl. OIDC, folders, custom fields, key policies, "
+                 "PKI issuers, account settings) and translate it into Terraform.",
+                 "The exact `watchover export` command (model or --hcl mode, filters), then resolution of every "
+                 "REPORT.md item and the import checklist until the plan shows imports only.",
+                 "/akeyless-watchover import the OIDC auth method and everything alice@example.com can reach"),
     SkillCommand("conjur", "<Conjur policy YAML>",
                  "Migrate from CyberArk Conjur: secrets via the Gateway, RBAC via translation.",
                  "Translated roles, bindings to fill (auth method + sub-claims), migration resource, cut-over plan.",
@@ -162,7 +163,7 @@ def _build_run(argv):
 def _test_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="watchover test",
                                  description="Run the complete offline test suite (no Akeyless account needed): "
-                                             "fmt, validate, terraform test, guard messages, bootstrap tests, "
+                                             "fmt, validate, terraform test, guard messages, export round trip, bootstrap tests, "
                                              "access simulation, script tests, guide drift check.")
     ap.add_argument("--tool", choices=["terraform", "tofu"], default="terraform", help="IaC binary to use")
     ap.add_argument("--skip-iac", action="store_true", help="only run the Python checks")
@@ -179,6 +180,7 @@ def _test_run(argv):
                       ([a.tool, "validate"], wd), ([a.tool, "test"], wd)]
             if extra:
                 steps.append((["bash", "tests/guard_messages.sh", a.tool], wd))
+                steps.append((["bash", "tests/export_roundtrip.sh", a.tool], wd))
     steps += [([sys.executable, os.path.join(HERE, "akl_simulate.py"), "--model", "terraform/model",
                 "--expectations", "terraform/model/access_expectations.yaml"], REPO),
               ([sys.executable, "-m", "pytest", "-q", "scripts/tests"], REPO)]
@@ -206,11 +208,14 @@ TOOLS: list[Tool] = [
     Tool("verify", "Live: compare expectations with describe-permissions run as each persona's CLI profile.",
          _ver[0], _ver[1], True,
          ["scripts/watchover verify --expectations terraform/model/access_expectations.yaml"]),
-    Tool("export", "Brownfield: export an existing account into the model + import blocks + report.",
+    Tool("export", "Export existing config and translate it: YAML model + import blocks, or plain Terraform (--hcl).",
          _exp[0], _exp[1], True,
-         ["scripts/watchover export --out export/ --profile admin --exclude '^/governance/roles/platform/terraform-' "
-          "--exclude '^/governance/auth/ci-terraform$'",
-          "scripts/watchover export --out export/ --from-dir saved/"]),
+         ["scripts/watchover export --out export/ --profile admin --exclude '^/governance/auth/ci-terraform$'",
+          "scripts/watchover export --out export/ --profile admin --types auth-methods --only sso",
+          "scripts/watchover export --out export/ --profile admin --persona-auth-method /governance/auth/sso-entra-oidc "
+          "--persona-claim email=alice@example.com --persona-claim groups=grp-akl-payments-admins",
+          "AKEYLESS_ACCESS_ID=p-... AKEYLESS_ACCESS_KEY=... scripts/watchover export --out export/ --profile admin --hcl --generate",
+          "scripts/watchover export --out export2/ --from-dir export/raw     # offline replay"]),
     Tool("conjur", "Translate Conjur policy into model roles + identity bindings.", _cj[0], _cj[1], False,
          ["scripts/watchover conjur root.yml prod.yml --item-prefix /conjur --out export/conjur"]),
     Tool("account-settings", "Apply account_settings_cli (settings the provider cannot manage) with the CLI.",

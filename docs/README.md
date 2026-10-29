@@ -11,7 +11,7 @@
 | 6 | [pipeline.md](pipeline.md) | Bootstrap identity, GitHub/GitLab pipelines, drift, state |
 | 7 | [cli.md](cli.md) | CLI playbook and the CLI-only account settings |
 | 8 | [testing-and-verification.md](testing-and-verification.md) | Offline tests, access simulator, live verification |
-| 9 | [brownfield-import.md](brownfield-import.md) | Bringing an existing Akeyless account under code |
+| 9 | [brownfield-import.md](brownfield-import.md) | Export existing config and translate it into Terraform (model or plain HCL) |
 | 10 | [conjur-migration.md](conjur-migration.md) | CyberArk Conjur -> Akeyless (secrets and RBAC) |
 | 11 | [pki.md](pki.md) | Private/public CA governance |
 | 12 | [limitations.md](limitations.md) | What is not possible, what is unverified, and why |

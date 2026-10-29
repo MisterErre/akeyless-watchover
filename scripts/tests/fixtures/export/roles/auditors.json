@@ -1,0 +1,33 @@
+{
+  "role_name": "/governance/roles/platform/auditors",
+  "rules": {
+    "path_rules": [
+      {
+        "path": "/*",
+        "capabilities": [
+          "list"
+        ],
+        "type": "item-rule"
+      },
+      {
+        "path": "/*",
+        "capabilities": [
+          "read"
+        ],
+        "type": "search-rule"
+      }
+    ]
+  },
+  "role_auth_methods_assoc": [
+    {
+      "assoc_id": "ass-3",
+      "auth_method_name": "/governance/auth/sso",
+      "auth_method_sub_claims": {
+        "groups": [
+          "grp-auditors"
+        ]
+      },
+      "sub_claims_case_sensitive": true
+    }
+  ]
+}
