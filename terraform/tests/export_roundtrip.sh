@@ -45,6 +45,7 @@ rm "$work/mod/imports.tf"
 (cd "$work/mod" && "$TF" test >/dev/null)
 echo "ok    model mode: exported model plans (mocked provider)"
 
-python3 "$repo/scripts/akl_export.py" --out "$work/hcl" --from-dir "$repo/scripts/tests/fixtures/export" --hcl >/dev/null
+python3 "$repo/scripts/akl_export.py" --out "$work/hcl" --from-dir "$repo/scripts/tests/fixtures/export" --hcl \
+  --types roles,auth-methods,folders,custom-fields,key-policies,pki-issuers,account-settings,targets,groups,gateway >/dev/null
 (cd "$work/hcl/hcl" && "$TF" init -backend=false -input=false >/dev/null && "$TF" validate >/dev/null)
-echo "ok    hcl mode: providers.tf + imports.tf validate"
+echo "ok    hcl mode (all types incl. gateway): providers.tf + imports.tf validate"

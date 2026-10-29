@@ -1,0 +1,27 @@
+{
+  "admins": {
+    "allowed_access": {
+      "a1": {
+        "name": "platform-admins",
+        "acc_id": "p-sso"
+      }
+    }
+  },
+  "log_forwarding": {
+    "target_log_type": "syslog",
+    "syslog_config": {
+      "syslog_host": "siem:6514"
+    }
+  },
+  "migrations": {
+    "conjur_migrations": [
+      {
+        "general": {
+          "name": "conjur-prod",
+          "type": "conjur"
+        }
+      }
+    ],
+    "hashi_migrations": []
+  }
+}

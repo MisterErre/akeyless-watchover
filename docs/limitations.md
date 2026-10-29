@@ -27,6 +27,9 @@
 * `access_info.rules_type` strings (exporter); exact CLI behaviour of `describe-permissions` when
   the caller has no access (verifier flag).
 * Item names produced by the Conjur migration.
+* Export: `target_type` strings other than aws, azure, gcp, k8s and hashi_vault (matched by name);
+  the CLI command name `list-groups` (REST `/list-group`); the shape of `admins.allowed_access`
+  and the log-forwarding type in `gateway-get-config`; `/configure` and `/connect` over REST.
 
 Everything else in this repository was checked against docs.akeyless.io, the Akeyless OpenAPI/Go
 SDK and the provider source/schema, and the code is covered by offline tests.

@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to Claude). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -97,7 +97,7 @@ SKILL_COMMANDS: list[SkillCommand] = [
     SkillCommand("explain", "<topic>",
                  "Explain an Akeyless concept precisely (sub-claims, deny, wildcards, anti-escalation...).",
                  "A short answer with the verified facts and VERIFY caveats.",
-                 "/akeyless-watchover explain sub-claims AND/OR"),
+                 "/akeyless-watchover explain should this run through the API or the CLI?"),
 ]
 
 # --------------------------------------------------------------------------------------
@@ -215,6 +215,8 @@ TOOLS: list[Tool] = [
           "scripts/watchover export --out export/ --profile admin --persona-auth-method /governance/auth/sso-entra-oidc "
           "--persona-claim email=alice@example.com --persona-claim groups=grp-akl-payments-admins",
           "AKEYLESS_ACCESS_ID=p-... AKEYLESS_ACCESS_KEY=... scripts/watchover export --out export/ --profile admin --hcl --generate",
+          "AKEYLESS_TOKEN=$(scripts/watchover token) scripts/watchover export --out export/ --transport api "
+          "--hcl --types targets,groups,gateway --gateway-api https://gw.example.com:8000/api/v2",
           "scripts/watchover export --out export2/ --from-dir export/raw     # offline replay"]),
     Tool("conjur", "Translate Conjur policy into model roles + identity bindings.", _cj[0], _cj[1], False,
          ["scripts/watchover conjur root.yml prod.yml --item-prefix /conjur --out export/conjur"]),

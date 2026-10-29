@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 - 2026-10-29
+
+Added
+- `docs/api-vs-cli.md`: the REST API and the CLI are two clients of the same operations (659 of 666 API request schemas come from the CLI command package). It explains how to choose between them and what each one adds.
+- `watchover export --transport cli|api`. REST mode needs no CLI binary: it uses `--token` / `$AKEYLESS_TOKEN`, plus `--api` and `--gateway-api`.
+- New export families: `targets`, `groups` and `gateway` (defaults, cache, remote access, log forwarding, migrations, allowed access), all written as plain Terraform with `--hcl`.
+- Test fakes for the CLI and REST back ends. A test requires identical output from the CLI, REST and saved-JSON paths, and checks the exact CLI commands and REST request bodies.
+
 ## 1.2.0 - 2026-10-29
 
 Added

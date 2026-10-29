@@ -158,7 +158,7 @@ def test_export_model_mode(tmp_path):
         assert needle in imports, needle
     assert "kerb" not in imports
     report = open(tmp_path / "REPORT.md").read()
-    for needle in ("brand-new-rule", "temporary rule", "client secret not exported", "PKI issuer", "4 discovered"):
+    for needle in ("brand-new-rule", "temporary rule", "client secret not exported", "PKI issuer", "5 discovered"):
         assert needle in report, needle
 
 
@@ -199,7 +199,7 @@ def test_export_hcl_mode(tmp_path):
     r = export(tmp_path, "--hcl")
     assert r.returncode == 0, r.stderr
     imports = open(tmp_path / "hcl/imports.tf").read()
-    assert imports.count("import {") == 18
+    assert imports.count("import {") == 21  # 18 + 2 targets with a known resource + 1 group (gateway not in default types)
     for needle in ("to = akeyless_auth_method_kerberos.legacy_kerb", "to = akeyless_pki_cert_issuer.pki_issuers_payments_server",
                    "to = akeyless_account_settings.account_settings", "to = akeyless_policy_keys.payments\n",
                    'id = "/governance/roles/payments/team-admin:/governance/auth/ci-terraform"'):
@@ -212,6 +212,90 @@ def test_export_hcl_mode(tmp_path):
                                   ["--persona-auth-method", "/x", "--persona-claim", "novalue"]])
 def test_export_usage_errors(tmp_path, args):
     assert export(tmp_path, *args).returncode == 2
+
+
+# ---------- transports: cli / api / from-dir must agree ----------
+import fake_backend  # noqa: E402
+
+
+def _tree(d):
+    out = {}
+    for root, _dirs, files in os.walk(d):
+        for f in files:
+            rel = os.path.relpath(os.path.join(root, f), d)
+            if not rel.startswith("raw"):
+                out[rel] = open(os.path.join(root, f)).read()
+    return out
+
+
+def _fake_cli(tmp_path):
+    exe = tmp_path / "akeyless"
+    exe.write_text(f"#!/bin/sh\nexec {sys.executable} {os.path.join(HERE, 'fake_backend.py')} \"$@\"\n")
+    exe.chmod(0o755)
+    return str(exe)
+
+
+@pytest.mark.parametrize("mode", [[], ["--hcl", "--types", ",".join(__import__("akl_export").TYPES)]])
+def test_transports_produce_identical_output(tmp_path, mode):
+    log = []
+    srv = fake_backend.serve(log)
+    api = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        r1 = run("scripts/akl_export.py", "--out", str(tmp_path / "dir"), "--from-dir", FX, *mode)
+        r2 = subprocess.run([sys.executable, os.path.join(SCRIPTS, "akl_export.py"), "--out", str(tmp_path / "cli"),
+                             "--transport", "cli", "--akeyless", _fake_cli(tmp_path), "--profile", "p",
+                             "--gateway-url", "https://gw:8000", *mode],
+                            capture_output=True, text=True, env={**os.environ, "FAKE_AKL_LOG": str(tmp_path / "cli.log")})
+        r3 = run("scripts/akl_export.py", "--out", str(tmp_path / "api"), "--transport", "api", "--api", api,
+                 "--token", "T0KEN", "--gateway-api", api + "/gw/api/v2", *mode)
+    finally:
+        srv.shutdown()
+    for r in (r1, r2, r3):
+        assert r.returncode == 0, r.stderr
+    a, b, c = _tree(tmp_path / "dir"), _tree(tmp_path / "cli"), _tree(tmp_path / "api")
+    assert a.keys() == b.keys() == c.keys()
+    for k in a:
+        if k != "REPORT.md":  # item counts differ: the dir replay lists every saved item
+            assert a[k] == b[k] == c[k], k
+    # REST: token in every body, Gateway calls to the Gateway API
+    assert log and all(body.get("token") == "T0KEN" for _p, body in log)
+    assert ("/get-role", {"name": "/governance/roles/payments/team-admin", "token": "T0KEN"}) in log
+    if mode:
+        assert any(p == "/gw/api/v2/gateway-get-config" for p, _b in log)
+    # CLI: exact command words and flags
+    calls = [json.loads(line) for line in open(tmp_path / "cli.log")]
+    assert ["folder", "get", "--name", "/payments", "--json", "--profile", "p"] in calls
+    assert ["list-roles", "--pagination-token", "p2", "--json", "--profile", "p"] in calls
+    if mode:
+        assert ["list-groups", "--json", "--profile", "p"] in calls
+        assert ["gateway-get-config", "--gateway-url", "https://gw:8000", "--json", "--profile", "p"] in calls
+
+
+def test_export_targets_groups_gateway_hcl(tmp_path):
+    r = export(tmp_path, "--hcl", "--types", "targets,groups,gateway")
+    assert r.returncode == 0, r.stderr
+    imports = open(tmp_path / "hcl/imports.tf").read()
+    for needle in ("to = akeyless_target_aws.targets_aws_prod", "to = akeyless_target_lets_encrypt.targets_letsencrypt",
+                   "to = akeyless_group.groups_payments_oidc_app",
+                   "to       = akeyless_gateway_defaults.gateway_defaults\n  provider = akeyless.gateway",
+                   "akeyless_gateway_cache.gateway_cache", "akeyless_gateway_remote_access.gateway_remote_access",
+                   "to       = akeyless_gateway_log_forwarding_syslog.log_forwarding",
+                   "to       = akeyless_gateway_migration_conjur.conjur_prod",
+                   "to       = akeyless_gateway_allowed_access.platform_admins"):
+        assert needle in imports, needle
+    assert "mystery" not in imports
+    report = open(tmp_path / "REPORT.md").read()
+    assert "quantum_vault" in report and "lets_encrypt` mapped to akeyless_target_lets_encrypt by name - VERIFY" in report
+    assert 'alias               = "gateway"' in open(tmp_path / "hcl/providers.tf").read()
+
+
+@pytest.mark.parametrize("args", [["--transport", "api"],                       # no token
+                                  ["--transport", "cli", "--akeyless", "/bin/false", "--types", "gateway"]])
+def test_transport_errors(tmp_path, args):
+    env = {k: v for k, v in os.environ.items() if k != "AKEYLESS_TOKEN"}
+    r = subprocess.run([sys.executable, os.path.join(SCRIPTS, "akl_export.py"), "--out", str(tmp_path), *args],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 2, r.stdout + r.stderr
 
 
 # ---------- conjur ----------

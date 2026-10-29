@@ -45,7 +45,26 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from akl_model import sub_claims_match  # noqa: E402
 
-TYPES = ["roles", "auth-methods", "folders", "custom-fields", "key-policies", "pki-issuers", "account-settings"]
+TYPES = ["roles", "auth-methods", "folders", "custom-fields", "key-policies", "pki-issuers", "account-settings",
+         "targets", "groups", "gateway"]
+DEFAULT_TYPES = [t for t in TYPES if t != "gateway"]  # gateway needs a Gateway URL
+
+# target_type -> akeyless_target_<suffix>. Verified: the provider's own constants (common/types.go).
+TARGET_VERIFIED = {"aws": "aws", "azure": "azure", "gcp": "gcp", "k8s": "k8s", "hashi_vault": "hashivault"}
+TARGET_RESOURCES = ["aerospike", "anthropic", "artifactory", "aws", "azure", "bedrock", "cloudflare", "custom_dns", "db",
+                    "digicert", "dockerhub", "eks", "gcp", "gemini", "github", "gitlab", "gke", "globalsign",
+                    "globalsign_atlas", "godaddy", "google_trust", "grok", "hashivault", "k8s", "keycloak", "ldap",
+                    "lets_encrypt", "linked", "okta", "openai", "ping", "rabbit", "salesforce", "sectigo", "splunk",
+                    "ssh", "web", "windows", "zerossl"]
+# gateway-get-config parts -> provider resources (all importable; singletons take any import ID)
+GW_MIGRATIONS = {"active_directory_migrations": "active_directory", "aws_secrets_migrations": "aws",
+                 "azure_kv_migrations": "azure_kv", "certificate_migrations": "certificate",
+                 "conjur_migrations": "conjur", "gcp_secrets_migrations": "gcp", "hashi_migrations": "hashi",
+                 "k8s_migrations": "k8s", "server_inventory_migrations": "server_inventory"}
+GW_LOG_CONFIGS = {"syslog_config": "syslog", "splunk_config": "splunk", "datadog_config": "datadog",
+                  "elasticsearch_config": "elasticsearch", "logstash_config": "logstash", "logz_io_config": "logz_io",
+                  "sumo_logic_config": "sumologic", "google_chronicle_config": "google_chronicle",
+                  "azure_analytics_config": "azure_analytics", "aws_s3_config": "aws_s3"}
 
 # access-rule types stored as role rules by the API -> role attributes (provider 2.0.5 mapping)
 ACCESS_RULES = {
@@ -99,41 +118,58 @@ SECRET_KEYS = {"client_secret", "access_key", "password", "private_key", "privat
 
 
 # ------------------------------------------------------------------ sources
-class CliSource:
-    def __init__(self, binary: str, profile: str | None):
-        self.binary, self.profile = binary, profile
+# Every read the exporter performs, as (CLI command words, REST path, scope). The CLI and the
+# REST API are two clients of the same operations (the OpenAPI request schemas are generated from
+# the CLI command package), so both transports return the same JSON. Names can differ: the CLI
+# documents `list-groups` (VERIFY) while the REST path is /list-group.
+OPS = {
+    "list-roles": (["list-roles"], "/list-roles", "api"),
+    "get-role": (["get-role"], "/get-role", "api"),
+    "list-auth-methods": (["list-auth-methods"], "/list-auth-methods", "api"),
+    "get-auth-method": (["get-auth-method"], "/get-auth-method", "api"),
+    "list-items": (["list-items"], "/list-items", "api"),
+    "folder-get": (["folder", "get"], "/folder-get", "api"),
+    "describe-item": (["describe-item"], "/describe-item", "api"),
+    "account-custom-field-list": (["account-custom-field", "list"], "/account-custom-field-list", "api"),
+    "policy-list": (["policy", "list"], "/policy-list", "api"),
+    "get-account-settings": (["get-account-settings"], "/get-account-settings", "api"),
+    "list-targets": (["list-targets"], "/list-targets", "api"),
+    "list-groups": (["list-groups"], "/list-group", "api"),
+    "gateway-get-config": (["gateway-get-config"], "/gateway-get-config", "gateway"),
+}
 
-    def call(self, *args: str, allow_fail: bool = False):
-        cmd = [self.binary, *args, "--json"] + (["--profile", self.profile] if self.profile else [])
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode != 0:
-            if allow_fail:
-                return None
-            raise RuntimeError(f"{' '.join(cmd)}: {(res.stderr or res.stdout).strip()}")
-        return json.loads(res.stdout or "null")
 
-    def _paged(self, command: str, key: str, *extra: str) -> list:
+class _Source:
+    """Shared logic; subclasses implement request(op, params, allow_fail)."""
+
+    def request(self, op: str, params: dict | None = None, allow_fail: bool = False):  # pragma: no cover
+        raise NotImplementedError
+
+    def _paged(self, op: str, key: str, params: dict | None = None) -> list:
         out, token = [], None
         while True:
-            data = self.call(command, *extra, *(["--pagination-token", token] if token else [])) or {}
+            p = dict(params or {})
+            if token:
+                p["pagination-token"] = token
+            data = self.request(op, p) or {}
             out += data.get(key) or []
             token = data.get("next_page")
             if not token:
                 return out
 
     def roles(self):
-        return [self.call("get-role", "--name", r["role_name"]) for r in self._paged("list-roles", "roles")]
+        return [self.request("get-role", {"name": r["role_name"]}) for r in self._paged("list-roles", "roles")]
 
     def auth_methods(self):
-        return [self.call("get-auth-method", "--name", m["auth_method_name"])
+        return [self.request("get-auth-method", {"name": m["auth_method_name"]})
                 for m in self._paged("list-auth-methods", "auth_methods")]
 
     def walk(self, root: str, max_depth: int):
-        """BFS over list-items: returns (folder paths, items)."""
+        """Breadth-first walk over list-items: returns (folder paths, items)."""
         seen, items, queue = set(), {}, [(root.rstrip("/") or "/", 0)]
         while queue:
             path, depth = queue.pop(0)
-            data = self.call("list-items", "--path", path) or {}
+            data = self.request("list-items", {"path": path}) or {}
             for it in data.get("items") or []:
                 items[it.get("item_name")] = it
             for f in data.get("folders") or []:
@@ -145,20 +181,80 @@ class CliSource:
         return sorted(seen), list(items.values())
 
     def folder(self, name: str):
-        out = self.call("folder", "get", "--name", name, allow_fail=True)
+        out = self.request("folder-get", {"name": name}, allow_fail=True)
         return (out or {}).get("folder") if isinstance(out, dict) else None
 
     def describe(self, name: str):
-        return self.call("describe-item", "--name", name, allow_fail=True)
+        return self.request("describe-item", {"name": name}, allow_fail=True)
 
     def custom_fields(self):
-        return self.call("account-custom-field", "list", allow_fail=True) or []
+        return self.request("account-custom-field-list", allow_fail=True) or []
 
     def policies(self):
-        return (self.call("policy", "list", allow_fail=True) or {}).get("policies") or []
+        return (self.request("policy-list", allow_fail=True) or {}).get("policies") or []
 
     def account_settings(self):
-        return self.call("get-account-settings", allow_fail=True)
+        return self.request("get-account-settings", allow_fail=True)
+
+    def targets(self):
+        return self._paged("list-targets", "targets")
+
+    def groups(self):
+        return self._paged("list-groups", "groups")
+
+    def gateway_config(self):
+        return self.request("gateway-get-config", allow_fail=True)
+
+
+class CliSource(_Source):
+    def __init__(self, binary: str, profile: str | None, gateway_url: str | None = None):
+        self.binary, self.profile, self.gateway_url = binary, profile, gateway_url
+
+    def request(self, op, params=None, allow_fail=False):
+        words, _path, scope = OPS[op]
+        cmd = [self.binary, *words]
+        for k, v in (params or {}).items():
+            cmd += [f"--{k}", str(v)]
+        if scope == "gateway":
+            if not self.gateway_url:
+                raise RuntimeError(f"{op} needs --gateway-url (the Gateway configuration URL, port 8000)")
+            cmd += ["--gateway-url", self.gateway_url]
+        cmd += ["--json"] + (["--profile", self.profile] if self.profile else [])
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            if allow_fail:
+                return None
+            raise RuntimeError(f"{' '.join(cmd)}: {(res.stderr or res.stdout).strip()}")
+        return json.loads(res.stdout or "null")
+
+
+class ApiSource(_Source):
+    """REST transport: POST <base><path> with a JSON body carrying the token."""
+
+    def __init__(self, api: str, token: str, gateway_api: str | None = None, timeout: int = 60):
+        self.api, self.token, self.gateway_api, self.timeout = api.rstrip("/"), token, gateway_api, timeout
+
+    def request(self, op, params=None, allow_fail=False):
+        import urllib.error
+        import urllib.request
+        _words, path, scope = OPS[op]
+        base = self.api
+        if scope == "gateway":
+            if not self.gateway_api:
+                raise RuntimeError(f"{op} needs --gateway-api (the Gateway V2 API, e.g. https://gw:8000/api/v2)")
+            base = self.gateway_api.rstrip("/")
+        body = json.dumps({**(params or {}), "token": self.token}).encode()
+        req = urllib.request.Request(base + path, data=body, method="POST",
+                                     headers={"Content-Type": "application/json", "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310 - URL from the operator
+                return json.loads(resp.read().decode() or "null")
+        except urllib.error.HTTPError as e:
+            if allow_fail:
+                return None
+            raise RuntimeError(f"POST {base}{path}: HTTP {e.code} {e.read().decode(errors='replace')[:300]}") from None
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"POST {base}{path}: {e.reason}") from None
 
 
 class DirSource:
@@ -204,6 +300,15 @@ class DirSource:
 
     def account_settings(self):
         return self._one("account_settings.json", None)
+
+    def targets(self):
+        return self._one("targets.json", [])
+
+    def groups(self):
+        return self._one("groups.json", [])
+
+    def gateway_config(self):
+        return self._one("gateway_config.json", None)
 
 
 # ------------------------------------------------------------------ helpers
@@ -369,11 +474,18 @@ def convert_folder(f: dict) -> dict:
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", required=True, help="output directory (model/, imports.tf or hcl/, raw/, REPORT.md)")
-    ap.add_argument("--profile", help="akeyless CLI profile with read access to the objects to export")
-    ap.add_argument("--akeyless", default="akeyless", help="path to the akeyless CLI binary")
+    ap.add_argument("--transport", choices=["cli", "api"], default="cli",
+                    help="how to read Akeyless: the akeyless CLI (profiles, SSO logins) or the REST API directly (token)")
+    ap.add_argument("--profile", help="cli transport: akeyless CLI profile with read access to the objects to export")
+    ap.add_argument("--akeyless", default="akeyless", help="cli transport: path to the akeyless CLI binary")
+    ap.add_argument("--gateway-url", help="cli transport, --types gateway: Gateway configuration URL (https://gw:8000)")
+    ap.add_argument("--api", default=os.environ.get("AKEYLESS_API", "https://api.akeyless.io"),
+                    help="api transport: API base URL (default $AKEYLESS_API or https://api.akeyless.io)")
+    ap.add_argument("--token", help="api transport: Akeyless token (default $AKEYLESS_TOKEN; e.g. from 'watchover token')")
+    ap.add_argument("--gateway-api", help="api transport, --types gateway: Gateway V2 API (https://gw:8000/api/v2)")
     ap.add_argument("--from-dir", help="replay a raw/ directory of a previous export instead of calling the CLI")
-    ap.add_argument("--types", default=",".join(TYPES),
-                    help="comma-separated object families: " + ", ".join(TYPES))
+    ap.add_argument("--types", default=",".join(DEFAULT_TYPES),
+                    help="comma-separated object families (default: all but gateway): " + ", ".join(TYPES))
     ap.add_argument("--only", help="keep only objects whose name matches this regex")
     ap.add_argument("--exclude", action="append", default=[], help="regex of names to skip (repeatable)")
     ap.add_argument("--root", default="/", help="folder to start the item/folder walk from")
@@ -419,7 +531,15 @@ def _main(argv: list[str] | None = None) -> None:
     def keep(n: str) -> bool:
         return (only is None or bool(only.search(n))) and not any(x.search(n) for x in excl)
 
-    src = DirSource(a.from_dir) if a.from_dir else CliSource(a.akeyless, a.profile)
+    if a.from_dir:
+        src = DirSource(a.from_dir)
+    elif a.transport == "api":
+        token = a.token or os.environ.get("AKEYLESS_TOKEN")
+        if not token:
+            raise ValueError("--transport api needs --token or $AKEYLESS_TOKEN")
+        src = ApiSource(a.api, token, a.gateway_api)
+    else:
+        src = CliSource(a.akeyless, a.profile, a.gateway_url)
     raw = os.path.join(a.out, "raw")
     os.makedirs(raw, exist_ok=True)
 
@@ -483,12 +603,30 @@ def _main(argv: list[str] | None = None) -> None:
             save("", "account_settings.json", acc)
             found["account-settings"] = [acc]
 
+    if "targets" in types:
+        tg = src.targets()
+        save("", "targets.json", tg)
+        found["targets"] = tg
+    if "groups" in types:
+        gr = src.groups()
+        save("", "groups.json", gr)
+        found["groups"] = gr
+    if "gateway" in types:
+        gc = src.gateway_config()
+        if gc:
+            save("", "gateway_config.json", gc)
+            found["gateway"] = [gc]
+        else:
+            report.append("- gateway: gateway-get-config returned nothing (check the Gateway URL and allowed access)")
+
     # ---- selection
     found["roles"] = [r for r in found["roles"] if keep(r["role_name"])]
     found["auth-methods"] = [m for m in found["auth-methods"] if keep(m["auth_method_name"])]
     found["folders"] = [f for f in found["folders"] if keep(f.get("folder_name", ""))]
     found["pki-issuers"] = [i for i in found["pki-issuers"] if keep(i["item_name"])]
     found["key-policies"] = [p for p in found["key-policies"] if keep(p.get("path", ""))]
+    found["targets"] = [t for t in found["targets"] if keep(t.get("target_name", ""))]
+    found["groups"] = [g for g in found["groups"] if keep(g.get("group_name", ""))]
 
     model_roles = {r["role_name"]: convert_role(r, report) for r in found["roles"]}
     if a.persona_auth_method:
@@ -505,7 +643,8 @@ def _main(argv: list[str] | None = None) -> None:
                     break
         model_roles = matched
         found["roles"] = [r for r in found["roles"] if r["role_name"] in matched]
-        for t in ("folders", "custom-fields", "key-policies", "pki-issuers", "account-settings"):
+        for t in ("folders", "custom-fields", "key-policies", "pki-issuers", "account-settings", "targets", "groups",
+                  "gateway"):
             found[t] = []
         report.append(f"- persona view: auth method `{pam}` with claims {claims} -> {len(matched)} matching role(s)")
 
@@ -567,6 +706,10 @@ def write_model(a, found, model_roles, report):
     if found["account-settings"]:
         report.append("- account settings exported to raw/account_settings.json; use --hcl --types account-settings "
                       "for the Terraform-managed subset, and account_settings_cli for the rest")
+    for t, what in (("targets", "target(s)"), ("groups", "group(s)"), ("gateway", "Gateway configuration")):
+        if found[t]:
+            report.append(f"- {len(found[t]) if t != 'gateway' else 1} {what}: not part of the YAML model - use --hcl "
+                          f"--types {t} for plain Terraform (raw JSON in raw/)")
     mdir = os.path.join(a.out, "model")
     os.makedirs(os.path.join(mdir, "roles"), exist_ok=True)
     for path, doc in ((os.path.join(mdir, "roles", "imported.yaml"), {"roles": model_roles}),
@@ -615,7 +758,54 @@ def write_hcl(a, found, report):
         add("akeyless_pki_cert_issuer", i["item_name"], i["item_name"], "issuer")
     if found["account-settings"]:
         add("akeyless_account_settings", "account_settings", "account-settings", "acct")
-
+    for tg in found["targets"]:
+        n, tt = tg.get("target_name", ""), str(tg.get("target_type", ""))
+        suffix = TARGET_VERIFIED.get(tt)
+        if suffix is None:
+            norm = re.sub(r"[^a-z0-9]", "", tt.lower())
+            cands = [r for r in TARGET_RESOURCES if re.sub(r"[^a-z0-9]", "", r) == norm]
+            if len(cands) == 1:
+                suffix = cands[0]
+                report.append(f"- target `{n}`: type `{tt}` mapped to akeyless_target_{suffix} by name - VERIFY")
+            else:
+                report.append(f"- target `{n}`: type `{tt}` has no known akeyless_target_* resource - not exported")
+                continue
+        add(f"akeyless_target_{suffix}", n, n, "target")
+    for g in found["groups"]:
+        add("akeyless_group", g.get("group_name", ""), g.get("group_name", ""), "group")
+    gw_blocks = 0
+    for gc in found["gateway"]:
+        def gadd(rtype, name, import_id):
+            nonlocal gw_blocks
+            ident = tf_id("gw", name, used.setdefault(rtype, set()))
+            blocks.append(f"import {{\n  to       = {rtype}.{ident}\n  provider = akeyless.gateway\n"
+                          f"  id       = {hcl(import_id)}\n}}\n")
+            gw_blocks += 1
+        for single in ("defaults", "cache", "remote_access"):
+            gadd(f"akeyless_gateway_{single}", f"gateway_{single}", f"gateway-{single}")
+        lf = gc.get("log_forwarding") or {}
+        lt = str(lf.get("target_log_type") or "").lower().replace("-", "_")
+        lf_types = [v for k, v in GW_LOG_CONFIGS.items() if v == lt or (not lt and lf.get(k))]
+        if lt == "stdout":
+            lf_types = ["stdout"]
+        if len(lf_types) == 1:
+            gadd(f"akeyless_gateway_log_forwarding_{lf_types[0]}", "log_forwarding", "log-forwarding")
+            report.append(f"- gateway log forwarding detected as `{lf_types[0]}` (target_log_type `{lt}`) - VERIFY")
+        elif lf:
+            report.append(f"- gateway log forwarding type not determined (target_log_type `{lt}`) - see raw/gateway_config.json")
+        for key, kind in GW_MIGRATIONS.items():
+            for mig in ((gc.get("migrations") or {}).get(key) or []):
+                name = ((mig or {}).get("general") or {}).get("name")
+                if name:
+                    gadd(f"akeyless_gateway_migration_{kind}", name, name)
+        aa = ((gc.get("admins") or {}).get("allowed_access")) or {}
+        entries = aa.values() if isinstance(aa, dict) else aa if isinstance(aa, list) else []
+        for e in entries:
+            name = (e or {}).get("name") if isinstance(e, dict) else None
+            if name:
+                gadd("akeyless_gateway_allowed_access", name, name)
+        if entries:
+            report.append("- gateway allowed access read from gateway-get-config admins.allowed_access - VERIFY names")
     with open(os.path.join(d, "providers.tf"), "w") as fh:
         fh.write('''# Generated by watchover export --hcl.
 # Login: the provider reads AKEYLESS_ACCESS_ID / AKEYLESS_ACCESS_KEY from the environment
@@ -638,7 +828,17 @@ variable "akeyless_api" {
 provider "akeyless" {
   api_gateway_address = var.akeyless_api
 }
-''')
+''' + ('''
+variable "gateway_api" {
+  description = "Gateway V2 API, e.g. https://gw:8000/api/v2"
+  type        = string
+}
+
+provider "akeyless" {
+  alias               = "gateway"
+  api_gateway_address = var.gateway_api
+}
+''' if found["gateway"] else ""))
     with open(os.path.join(d, "imports.tf"), "w") as fh:
         fh.write("# Generated by watchover export --hcl. Run:\n"
                  "#   terraform init && terraform plan -generate-config-out=generated.tf\n"

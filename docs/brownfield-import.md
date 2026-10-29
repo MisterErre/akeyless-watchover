@@ -14,9 +14,20 @@ Terraform. It only **reads**: nothing in Akeyless changes until you apply.
 | `key-policies` | `policy list` | `governance.yaml key_policies` | `akeyless_policy_keys` |
 | `pki-issuers` | `list-items` walk + `describe-item` | reported (use `--hcl`) | `akeyless_pki_cert_issuer` |
 | `account-settings` | `get-account-settings` | saved to raw/ (use `--hcl`) | `akeyless_account_settings` |
+| `targets` | `list-targets` | reported (use `--hcl`) | `akeyless_target_*` (type mapping: confirmed for aws, azure, gcp, k8s, hashi_vault; others by name, VERIFY) |
+| `groups` | `list-groups` (`/list-group`) | reported (use `--hcl`) | `akeyless_group` |
+| `gateway` (not in the default set) | `gateway-get-config` | reported (use `--hcl`) | `akeyless_gateway_defaults`, `_cache`, `_remote_access`, `_log_forwarding_<type>`, `_migration_<type>`, `_allowed_access` (with `provider = akeyless.gateway`) |
 
-Not exported: secret values, keys, targets, rotated/dynamic secrets, event forwarders (no list
-API), Gateway allowed access (no list API: add them to `gateway.yaml` by hand).
+Not exported: secret values, keys, rotated/dynamic secret definitions, event forwarders (no list
+operation).
+
+## Transport: CLI or REST
+
+`--transport cli` (default) runs the `akeyless` CLI with `--profile` (SSO logins work).
+`--transport api` calls the REST API directly with `--token` / `$AKEYLESS_TOKEN`, with no binary
+needed. Both read the same operations and produce identical output (tested). See
+[api-vs-cli.md](api-vs-cli.md). Gateway reads need `--gateway-url https://gw:8000` (CLI) or
+`--gateway-api https://gw:8000/api/v2` (REST).
 
 The auth-method field mapping (e.g. Azure `bound_service_principal_ids` -> `bound_spid`, AWS
 `account_id` -> `bound_aws_account_id`) was taken from the provider 2.0.5 read code of every

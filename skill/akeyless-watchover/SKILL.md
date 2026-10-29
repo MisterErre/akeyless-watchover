@@ -16,7 +16,7 @@ what no primary source confirms - say so to the user instead of presenting it as
 
 ## Bundled files (when installed from the ZIP / repository)
 
-- `references/` - full documentation: `usage-guide.md` (all commands and parameters), `rbac-model.md`, `path-and-role-design.md`,
+- `references/` - full documentation: `usage-guide.md` (all commands and parameters), `api-vs-cli.md`, `rbac-model.md`, `path-and-role-design.md`,
   `model-reference.md` (every YAML key), `terraform.md`, `pipeline.md`, `cli.md`,
   `testing-and-verification.md`, `brownfield-import.md`, `conjur-migration.md`, `pki.md`,
   `limitations.md`. Read the one matching the task before answering in depth.
@@ -220,7 +220,17 @@ with `prevent_destroy`. Tests: `mock_provider "akeyless" {}` in `tests/*.tftest.
 12. Refreshing `akeyless_static_secret` reads the value: keep secret values out of governance state.
 13. State holds API keys, OIDC client secrets, K8s private keys, webhook/Splunk/Conjur secrets.
 
-## 6. CLI essentials (details: references/cli.md)
+## 6. API or CLI (details: references/api-vs-cli.md)
+
+Same operations: the OpenAPI request schemas are generated from the CLI command package, and
+`--json` prints the API response. Neither one exports more than the other. Choose by context:
+Terraform for every persistent change; the CLI for people with SSO profiles and for client-side
+features (`connect`, `agent`, `mcp`, `set-role-rule --file-rules`, `--jq-expression`); REST for CI
+and locked-down runners (`watchover token` + `watchover export --transport api`). Names can differ
+(`list-groups` vs `/list-group`, `folder get` vs `/folder-get`). Gateway calls: CLI `--gateway-url
+https://gw:8000`, REST base `https://gw:8000/api/v2`.
+
+## 7. CLI essentials (details: references/cli.md)
 
 Families: `auth-method create <type>`, `target create <type>`, `rotated-secret|dynamic-secret create <type>`,
 `folder create`; roles/PKI hyphenated (`create-role`, `set-role-rule`, `assoc-role-am`,
@@ -230,7 +240,7 @@ Global: `--profile`, `--token`, `--json`, `--jq-expression`. Write booleans as `
 CI token without stored secrets: REST `POST /auth` `{"access-id","access-type":"jwt","jwt"}` -> `token`
 (`scripts/akl_ci_token.sh`), then `--token`.
 
-## 7. Limitations and VERIFY items (details: references/limitations.md)
+## 8. Limitations and VERIFY items (details: references/limitations.md)
 
 Say these explicitly when relevant: no per-rule TF resource; no TF rename; temporary rules are
 CLI-only and reverted by apply; secrets in state; no RBAC users/groups; deny does not cover SRA;

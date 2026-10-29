@@ -1,0 +1,14 @@
+[
+  {
+    "target_name": "/targets/aws-prod",
+    "target_type": "aws"
+  },
+  {
+    "target_name": "/targets/letsencrypt",
+    "target_type": "lets_encrypt"
+  },
+  {
+    "target_name": "/targets/mystery",
+    "target_type": "quantum_vault"
+  }
+]

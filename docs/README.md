@@ -15,6 +15,7 @@
 | 10 | [conjur-migration.md](conjur-migration.md) | CyberArk Conjur -> Akeyless (secrets and RBAC) |
 | 11 | [pki.md](pki.md) | Private/public CA governance |
 | 12 | [limitations.md](limitations.md) | What is not possible, what is unverified, and why |
+| 13 | [api-vs-cli.md](api-vs-cli.md) | REST API or CLI: same operations, how to choose, what each adds |
 
 Sources of truth used: docs.akeyless.io, the Akeyless OpenAPI / Go SDK v5.0.x, and the source
 and schema of the Terraform provider `akeyless-community/akeyless` v2.0.5. Statements that no

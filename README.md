@@ -21,7 +21,7 @@ delivers it through one repository, one change, one pipeline.
 | "Harden the account" | account settings (Terraform subset + CLI-only flags), mandatory custom fields, key policies |
 | "Who can administer the Gateway / forward audit logs?" | Gateway allowed access, SIEM log forwarding |
 | "Prove that X can / cannot access Y" | offline simulation on every PR + live verification per persona |
-| "How do I do this with the CLI?" | exact commands, checked against the CLI reference |
+| "How do I do this with the CLI?" / "API or CLI?" | exact commands checked against the CLI reference, and when to use REST instead ([docs/api-vs-cli.md](docs/api-vs-cli.md)) |
 
 ## Install the skill
 
