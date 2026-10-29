@@ -51,11 +51,9 @@ DEFAULT_TYPES = [t for t in TYPES if t != "gateway"]  # gateway needs a Gateway 
 
 # target_type -> akeyless_target_<suffix>. Verified: the provider's own constants (common/types.go).
 TARGET_VERIFIED = {"aws": "aws", "azure": "azure", "gcp": "gcp", "k8s": "k8s", "hashi_vault": "hashivault"}
-TARGET_RESOURCES = ["aerospike", "anthropic", "artifactory", "aws", "azure", "bedrock", "cloudflare", "custom_dns", "db",
-                    "digicert", "dockerhub", "eks", "gcp", "gemini", "github", "gitlab", "gke", "globalsign",
-                    "globalsign_atlas", "godaddy", "google_trust", "grok", "hashivault", "k8s", "keycloak", "ldap",
-                    "lets_encrypt", "linked", "okta", "openai", "ping", "rabbit", "salesforce", "sectigo", "splunk",
-                    "ssh", "web", "windows", "zerossl"]
+# every akeyless_target_* resource of the pinned provider (from scripts/data/provider-<version>.json)
+TARGET_RESOURCES = sorted(r[len("akeyless_target_"):] for r in json.load(open(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "data", "provider-2.0.5.json")))["resources"] if r.startswith("akeyless_target_"))
 # gateway-get-config parts -> provider resources (all importable; singletons take any import ID)
 GW_MIGRATIONS = {"active_directory_migrations": "active_directory", "aws_secrets_migrations": "aws",
                  "azure_kv_migrations": "azure_kv", "certificate_migrations": "certificate",
@@ -136,7 +134,18 @@ OPS = {
     "list-targets": (["list-targets"], "/list-targets", "api"),
     "list-groups": (["list-groups"], "/list-group", "api"),
     "gateway-get-config": (["gateway-get-config"], "/gateway-get-config", "gateway"),
+    # detail reads used by --hcl: the same operations the provider's Read functions call
+    "target-get-details": (["target-get-details"], "/target-get-details", "api"),
+    "get-group": (["get-group"], "/get-group", "api"),
+    "gateway-get-defaults": (["gateway-get-defaults"], "/gateway-get-defaults", "gateway"),
+    "gateway-get-cache": (["gateway-get-cache"], "/gateway-get-cache", "gateway"),
+    "gateway-get-remote-access": (["gateway-get-remote-access"], "/gateway-get-remote-access", "gateway"),
+    "gateway-get-log-forwarding": (["gateway-get-log-forwarding"], "/gateway-get-log-forwarding", "gateway"),
+    "gateway-list-migration": (["gateway-list-migration"], "/gateway-list-migration", "gateway"),
+    "gateway-get-allowed-access": (["gateway-get-allowed-access"], "/gateway-get-allowed-access", "gateway"),
 }
+GW_PARTS = {"defaults": "gateway-get-defaults", "cache": "gateway-get-cache",
+            "remote_access": "gateway-get-remote-access", "log_forwarding": "gateway-get-log-forwarding"}
 
 
 class _Source:
@@ -237,6 +246,22 @@ class _Source:
 
     def gateway_config(self):
         return self.request("gateway-get-config", allow_fail=True)
+
+    # detail reads (--hcl): the objects exactly as the provider reads them
+    def target_details(self, name: str):
+        return self.request("target-get-details", {"name": name}, allow_fail=True)
+
+    def group(self, name: str):
+        return self.request("get-group", {"name": name}, allow_fail=True)
+
+    def gateway_part(self, part: str):
+        return self.request(GW_PARTS[part], allow_fail=True)
+
+    def gateway_migrations(self):
+        return self.request("gateway-list-migration", allow_fail=True)
+
+    def gateway_allowed_access(self, name: str):
+        return self.request("gateway-get-allowed-access", {"name": name}, allow_fail=True)
 
 
 class CliSource(_Source):
@@ -343,14 +368,39 @@ class DirSource:
     def gateway_config(self):
         return self._one("gateway_config.json", None)
 
+    def target_details(self, name):
+        return self._one(os.path.join("targets", fname(name)), None)
+
+    def group(self, name):
+        return self._one(os.path.join("groups", fname(name)), None)
+
+    def gateway_part(self, part):
+        return self._one(os.path.join("gateway", part + ".json"), None)
+
+    def gateway_migrations(self):
+        body: dict = {}
+        for m in self._many(os.path.join("gateway", "migrations")):
+            for kind, lst in (m.get("body") or {}).items():
+                body.setdefault(kind, []).extend(lst or [])
+        return {"body": body} if body else None
+
+    def gateway_allowed_access(self, name):
+        return self._one(os.path.join("gateway", "allowed_access", fname(name)), None)
+
 
 # ------------------------------------------------------------------ helpers
+from akl_hcl import NOT_SECRET as _NOT_SECRET, NOT_SECRET_RE as _NOT_SECRET_RE, SECRET_RE as _SECRET_RE  # noqa: E402
+
+
 def redact(obj, path=""):
     if isinstance(obj, dict):
         out = {}
         for k, v in obj.items():
             p = f"{path}.{k}" if path else k
-            if (k in SECRET_KEYS or p.endswith("api_key_access_rules.key")) and v not in (None, "", []):
+            secret = k in SECRET_KEYS or p.endswith("api_key_access_rules.key") or \
+                (bool(_SECRET_RE.search(k)) and k not in _NOT_SECRET and not _NOT_SECRET_RE.search(k)
+                 and not isinstance(v, (bool, int, float)))
+            if secret and v not in (None, "", [], {}):
                 out[k] = "<redacted>"
             else:
                 out[k] = redact(v, p)
@@ -526,10 +576,15 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--persona-auth-method", help="keep one identity's view: its auth method ...")
     ap.add_argument("--persona-claim", action="append", default=[],
                     help="... and its claims, key=value (repeatable); keeps roles whose association matches")
-    ap.add_argument("--hcl", action="store_true", help="write plain Terraform import blocks for every object (hcl/)")
+    ap.add_argument("--hcl", action="store_true",
+                    help="write complete Terraform resources laid out like raw/ (hcl/: one module per directory) "
+                         "plus import blocks")
+    ap.add_argument("--no-details", action="store_true",
+                    help="--hcl: skip the detail reads (target details, groups, Gateway parts); fewer attributes")
     ap.add_argument("--generate", action="store_true",
-                    help="with --hcl: run 'terraform plan -generate-config-out' (needs terraform and "
-                         "AKEYLESS_ACCESS_ID/AKEYLESS_ACCESS_KEY in the environment)")
+                    help="with --hcl: also write hcl-generated/ (flat import blocks) and run 'terraform plan "
+                         "-generate-config-out' there, to compare Terraform's own output with the translation "
+                         "(needs terraform and AKEYLESS_ACCESS_ID/AKEYLESS_ACCESS_KEY in the environment)")
     ap.add_argument("--terraform", default="terraform", help="terraform or tofu binary used by --generate")
     return ap
 
@@ -618,6 +673,8 @@ def _main(argv: list[str] | None = None) -> None:
             full = it if has_details or not ("ISSUER" in itype or "CERT" in itype) else (src.describe(it["item_name"]) or it)
             if is_pki_issuer(full):
                 found["pki-issuers"].append(full)
+                if full is not it:
+                    save("items", fname(it["item_name"]), full)     # raw keeps what was translated
         types_seen = sorted({str(i.get("item_type")) for i in items})
         if items:
             report.append(f"- items walked: {len(items)} (item types: {', '.join(types_seen)}); secrets, keys and "
@@ -652,6 +709,47 @@ def _main(argv: list[str] | None = None) -> None:
         else:
             report.append("- gateway: gateway-get-config returned nothing (check the Gateway URL and allowed access)")
 
+    details: dict = {"targets": {}, "groups": {}, "gateway": {}, "migrations": {}, "allowed_access": {}}
+    if a.hcl and not a.no_details:
+        for tg in found["targets"]:
+            n = tg.get("target_name", "")
+            dt = src.target_details(n) if n else None
+            if dt:
+                save("targets", fname(n), dt)
+                details["targets"][n] = dt
+        for g in found["groups"]:
+            n = g.get("group_name", "")
+            dg = src.group(n) if n else None
+            if dg:
+                save("groups", fname(n), dg)
+                details["groups"][n] = dg
+        if found["gateway"]:
+            for part in GW_PARTS:
+                gp = src.gateway_part(part)
+                if gp:
+                    save("gateway", part + ".json", gp)
+                    details["gateway"][part] = gp
+            ml = src.gateway_migrations() or {}
+            for kind, lst in (ml.get("body") or {}).items():
+                for mig in lst or []:
+                    n = ((mig or {}).get("general") or {}).get("name")
+                    if n:
+                        one = {"body": {kind: [mig]}}
+                        save(os.path.join("gateway", "migrations"), fname(n), one)
+                        details["migrations"][n] = (kind, one)
+            aa = ((found["gateway"][0].get("admins") or {}).get("allowed_access")) or {}
+            for e in (aa.values() if isinstance(aa, dict) else aa if isinstance(aa, list) else []):
+                n = (e or {}).get("name") if isinstance(e, dict) else None
+                da = src.gateway_allowed_access(n) if n else None
+                if n:
+                    details["allowed_access"][n] = da or e
+                    if da:
+                        save(os.path.join("gateway", "allowed_access"), fname(n), da)
+        missing = [t.get("target_name") for t in found["targets"] if t.get("target_name") not in details["targets"]]
+        if missing:
+            report.append(f"- {len(missing)} target(s) without details (target-get-details failed or not allowed): "
+                          "their resources use var.inputs for the connection settings")
+
     # ---- selection
     found["roles"] = [r for r in found["roles"] if keep(r["role_name"])]
     found["auth-methods"] = [m for m in found["auth-methods"] if keep(m["auth_method_name"])]
@@ -683,7 +781,9 @@ def _main(argv: list[str] | None = None) -> None:
 
     os.makedirs(a.out, exist_ok=True)
     if a.hcl:
-        write_hcl(a, found, report)
+        write_tree(a, found, details, model_roles, report)
+        if a.generate:
+            write_hcl(a, found, report)
     else:
         write_model(a, found, model_roles, report)
 
@@ -758,7 +858,8 @@ def write_model(a, found, model_roles, report):
 
 
 def write_hcl(a, found, report):
-    d = os.path.join(a.out, "hcl")
+    """--generate: flat import blocks in hcl-generated/ + `plan -generate-config-out` (Terraform's own output)."""
+    d = os.path.join(a.out, "hcl-generated")
     os.makedirs(d, exist_ok=True)
     used: dict = {}
     blocks = []
@@ -878,21 +979,15 @@ provider "akeyless" {
                  "#   terraform init && terraform plan -generate-config-out=generated.tf\n"
                  "# Terraform reads every object and writes its resource block into generated.tf.\n\n"
                  + "\n".join(blocks))
-    report.append(f"- hcl: {len(blocks)} import block(s) in hcl/imports.tf")
-    report.append("- generated.tf: sensitive values (OIDC client secrets, API access keys, K8s private keys) cannot "
-                  "be read back - replace them with variables before applying; review every block, then either keep "
-                  "the plain resources or move them into the YAML model")
-
-    if not a.generate:
-        report.append("- next: cd hcl && terraform init && terraform plan -generate-config-out=generated.tf")
-        return
+    report.append(f"- hcl-generated: {len(blocks)} flat import block(s); Terraform writes generated.tf from the live "
+                  "objects - compare it with the translation in hcl/")
     if shutil.which(a.terraform) is None:
         raise RuntimeError(f"--generate: '{a.terraform}' not found on PATH")
     if os.path.exists(os.path.join(d, "generated.tf")):
-        raise RuntimeError("hcl/generated.tf already exists - delete it first (terraform will not overwrite it)")
+        raise RuntimeError("hcl-generated/generated.tf already exists - delete it first (terraform will not overwrite it)")
     for cmd in ([a.terraform, "init", "-input=false"],
                 [a.terraform, "plan", "-input=false", "-generate-config-out=generated.tf"]):
-        print("+ " + " ".join(cmd) + f"   (in {d})", flush=True)
+        print("+ " + " ".join(cmd) + f"   (in {d})", flush=True)  # noqa: T201
         rc = subprocess.run(cmd, cwd=d).returncode
         if rc != 0 and cmd[1] == "init":
             raise RuntimeError("terraform init failed")
@@ -900,7 +995,259 @@ provider "akeyless" {
             report.append("- terraform plan returned an error: generated.tf may still have been written - fix the "
                           "reported attributes (often secrets or conflicting arguments) and plan again")
     if os.path.exists(os.path.join(d, "generated.tf")):
-        report.append("- hcl/generated.tf written by Terraform")
+        report.append("- hcl-generated/generated.tf written by Terraform")
+
+
+# ------------------------------------------------------------------ hcl mode: complete resources, raw/ layout
+def _stem(name: str) -> str:
+    return fname(name)[:-len(".json")]
+
+
+def target_resource(tg: dict, report: list[str]) -> str | None:
+    n, tt = tg.get("target_name", ""), str(tg.get("target_type", ""))
+    suffix = TARGET_VERIFIED.get(tt)
+    if suffix is None:
+        norm = re.sub(r"[^a-z0-9]", "", tt.lower())
+        cands = [r for r in TARGET_RESOURCES if re.sub(r"[^a-z0-9]", "", r) == norm]
+        if len(cands) == 1:
+            suffix = cands[0]
+            report.append(f"- target `{n}`: type `{tt}` mapped to akeyless_target_{suffix} by name - VERIFY")
+        else:
+            report.append(f"- target `{n}`: type `{tt}` has no known akeyless_target_* resource - not exported")
+            return None
+    return f"akeyless_target_{suffix}"
+
+
+def write_tree(a, found, details, model_roles, report):
+    import akl_hcl as H
+    out = os.path.join(a.out, "hcl")
+    if os.path.exists(out):
+        shutil.rmtree(out)
+    t = H.Tree()
+
+    def put(mod, stem, rtype, name, obj, import_id, hint=None, skip_comments=()):
+        r = H.generic(rtype, t.label(mod, rtype, hint or name), name, obj)
+        t.add(mod, stem, r, import_id)
+        return r
+
+    # roles (+ associations): raw/roles/<name>.json
+    for role in found["roles"]:
+        n = role["role_name"]
+        m = model_roles.get(n) or convert_role(role, [])
+        r = H.Resource("akeyless_role", t.label(("roles",), "akeyless_role", n), n)
+        r.set("name", n)
+        r.apply_map(role)
+        for k, v in m.items():
+            if k in ACCESS_RULES.values() or k == "event_forwarders_name":
+                r.set(k, v)
+        for rule in m.get("rules", []):
+            r.blocks.append(("rules", {"path": H.lit(rule["path"]), "capability": H.lit(rule["capabilities"]),
+                                       "rule_type": H.lit(rule.get("type", "item-rule"))}))
+        if m.get("allow_root_scope"):
+            r.comments.append("root-scope rule: confirm it is intended")
+        for pr in ((role.get("rules") or {}).get("path_rules") or []):
+            if pr.get("ttl"):
+                r.comments.append(f"temporary rule skipped (CLI-only, ttl {pr['ttl']}): {pr.get('type')} {pr.get('path')} "
+                                  f"{pr.get('capabilities')}")
+            elif pr.get("type") not in RULE_TYPES and pr.get("type") not in ACCESS_RULES:
+                r.comments.append(f"rule type not supported by the provider: {pr.get('type')} {pr.get('path')}")
+        r.used |= {("rules",), ("role_auth_methods_assoc",), ("role_name",)}
+        r.keep_unmapped(redact(role))
+        stem = _stem(n)
+        t.add(("roles",), stem, r, n)
+        for asc in role.get("role_auth_methods_assoc") or []:
+            am = asc.get("auth_method_name")
+            x = H.Resource("akeyless_associate_role_auth_method",
+                           t.label(("roles",), "akeyless_associate_role_auth_method", f"{n}__{am}"), f"{n}|{am}")
+            x.set("role_name", f"akeyless_role.{r.label}.name", expr=True)
+            x.set("am_name", am)
+            sc = asc.get("auth_method_sub_claims") or {}
+            if sc:
+                x.set("sub_claims", {k: (",".join(v) if isinstance(v, list) else str(v)) for k, v in sc.items()})
+            if asc.get("sub_claims_case_sensitive") is False:
+                x.set("case_sensitive", "false")
+            if asc.get("is_subclaims_with_operator"):
+                x.comments.append("sub-claims use AND/OR operators - check the value")
+            t.add(("roles",), stem, x, f"{n}:{am}")
+
+    # auth methods: raw/auth_methods/<name>.json
+    for am in found["auth-methods"]:
+        n = am["auth_method_name"]
+        typ, key = am_type(am)
+        typ = typ or OTHER_AM_RESOURCE.get(key)
+        if typ is None:
+            report.append(f"- auth method `{n}` ({key}): no Terraform resource for this type - not exported")
+            continue
+        r = put(("auth_methods",), _stem(n), f"akeyless_auth_method_{typ}", n, am, n)
+        r.used |= {("auth_method_name",), ("access_info", "rules_type")}
+        r.keep_unmapped(redact(am))
+        r.fill_required()
+
+    # folders: raw/folders/<name>.json
+    for f in found["folders"]:
+        n = "/" + f["folder_name"].strip("/")
+        r = put(("folders",), _stem(n), "akeyless_folder", n, {"folder": f}, n)
+        if f.get("delete_protection") is not None:
+            r.set("delete_protection", bool(f["delete_protection"]))
+        r.used |= {("folder", "folder_name"), ("folder", "delete_protection")}
+        r.keep_unmapped(redact({"folder": f}))
+
+    # PKI issuers: raw/items/<name>.json
+    for it in found["pki-issuers"]:
+        n = it["item_name"]
+        obj = dict(it)
+        if not obj.get("certificate_issue_details"):        # describe-item vs list-items shape
+            obj["certificate_issue_details"] = ((obj.get("item_general_info") or {}).get("cert_issue_details") or {})
+        r = put(("items",), _stem(n), "akeyless_pki_cert_issuer", n, obj, n)
+        mt = (obj.get("certificate_issue_details") or {}).get("max_ttl")
+        if mt:
+            r.set("ttl", str(mt))
+        assoc = obj.get("item_targets_assoc") or []
+        if assoc and assoc[0].get("target_name"):
+            r.set("ca_target", assoc[0]["target_name"])
+        r.used |= {("item_name",), ("item_type",), ("certificate_issue_details", "max_ttl"),
+                   ("item_targets_assoc",), ("item_general_info", "cert_issue_details")}
+        r.keep_unmapped(redact(obj))
+        r.fill_required()
+
+    # root files: raw/custom_fields.json, policies.json, account_settings.json
+    for cf in found["custom-fields"]:
+        r = put((), "custom_fields", "akeyless_account_custom_field", cf.get("name", ""), cf, str(cf.get("id")),
+                hint=f"{cf.get('name')}_{cf.get('object_type', '')}")
+        r.used |= {("id",)}
+        r.keep_unmapped(redact(cf))
+    for p in found["key-policies"]:
+        r = put((), "policies", "akeyless_policy_keys", p.get("path", ""), p, str(p.get("id")))
+        r.used |= {("id",), ("type",)}
+        r.keep_unmapped(redact(p))
+    for acc in found["account-settings"]:
+        r = put((), "account_settings", "akeyless_account_settings", "account_settings", acc, "account-settings")
+        r.keep_unmapped(redact(acc))
+
+    # targets: raw/targets/<name>.json (details) or raw/targets.json (list only)
+    for tg in found["targets"]:
+        n = tg.get("target_name", "")
+        rtype = target_resource(tg, report)
+        if rtype is None:
+            continue
+        dt = details["targets"].get(n)
+        mod, stem = (("targets",), _stem(n)) if dt else ((), "targets")
+        r = put(mod, stem, rtype, n, dt or {"target": tg}, n)
+        r.used |= {("target", "target_name"), ("target", "target_type")}
+        r.keep_unmapped(redact(dt or {"target": tg}))
+        r.fill_required()
+
+    # groups: raw/groups/<name>.json (get-group) or raw/groups.json
+    for g in found["groups"]:
+        n = g.get("group_name", "")
+        dg = details["groups"].get(n)
+        mod, stem = (("groups",), _stem(n)) if dg else ((), "groups")
+        obj = dg or g
+        r = put(mod, stem, "akeyless_group", n, obj, n)
+        if obj.get("user_assignments") is not None:
+            r.set("user_assignment", f"jsonencode({H.lit(obj['user_assignments'])})", expr=True)
+        r.used |= {("group_name",), ("user_assignments",)}
+        r.keep_unmapped(redact(obj))
+        r.fill_required()
+
+    # Gateway: raw/gateway/<part>.json, migrations/<name>.json, allowed_access/<name>.json
+    if found["gateway"]:
+        t.gateway_modules.add(("gateway",))
+        for part, gp in details["gateway"].items():
+            if part == "log_forwarding":
+                lt = str(gp.get("target_log_type") or "").lower().replace("-", "_")
+                kinds = [v for k, v in GW_LOG_CONFIGS.items() if v == lt or (not lt and gp.get(k))]
+                kinds = ["stdout"] if lt == "stdout" else kinds
+                if len(kinds) != 1:
+                    report.append(f"- gateway log forwarding type not determined (target_log_type `{lt}`) - see "
+                                  "raw/gateway/log_forwarding.json")
+                    continue
+                rtype = f"akeyless_gateway_log_forwarding_{kinds[0]}"
+            else:
+                rtype = f"akeyless_gateway_{part}"
+            r = put(("gateway",), part, rtype, part, gp, f"gateway-{part.replace('_', '-')}")
+            r.used |= {("target_log_type",)}
+            r.keep_unmapped(redact(gp))
+            r.fill_required()
+        for n, (kind, one) in details["migrations"].items():
+            rtype = f"akeyless_gateway_migration_{GW_MIGRATIONS.get(kind, kind)}"
+            if rtype not in H.DATA:
+                report.append(f"- gateway migration `{n}` ({kind}): no provider resource - not exported")
+                continue
+            r = put(("gateway", "migrations"), _stem(n), rtype, n, one, n)
+            r.used |= {("body", kind, "general", "name"), ("body", kind, "general", "type")}
+            r.keep_unmapped(redact(one))
+            r.fill_required()
+        for n, da in details["allowed_access"].items():
+            r = put(("gateway", "allowed_access"), _stem(n), "akeyless_gateway_allowed_access", n, da, n)
+            r.keep_unmapped(redact(da))
+            r.fill_required()
+        if details["allowed_access"]:
+            report.append("- gateway allowed access names read from gateway-get-config admins.allowed_access - VERIFY")
+    elif "gateway" in found and found["gateway"] == []:
+        pass
+
+    header = "# Generated by watchover export --hcl from raw/ (same relative path, .json -> .tf). Review before use.\n"
+    written = t.write(out, header)
+    has_gw = bool(found["gateway"])
+    with open(os.path.join(out, "versions.tf"), "w") as fh:
+        fh.write(header + f'''terraform {{
+  required_version = ">= 1.7.0"
+  required_providers {{
+    akeyless = {{
+      source  = "akeyless-community/akeyless"
+      version = "~> {H.PROVIDER_VERSION.rsplit(".", 1)[0]}"
+    }}
+  }}
+}}
+
+# Login: without a login block the provider reads AKEYLESS_ACCESS_ID / AKEYLESS_ACCESS_KEY from the environment.
+provider "akeyless" {{
+  api_gateway_address = var.akeyless_api
+}}
+''' + ('''
+provider "akeyless" {
+  alias               = "gateway"
+  api_gateway_address = var.gateway_api
+}
+''' if has_gw else "") + '''
+variable "akeyless_api" {
+  type    = string
+  default = "https://api.akeyless.io"
+}
+''' + ('''
+variable "gateway_api" {
+  description = "Gateway V2 API, e.g. https://gw:8000/api/v2"
+  type        = string
+}
+''' if has_gw else "") + '''
+variable "secrets" {
+  description = "Secret values, key \\"<object>:<attribute>\\" (see terraform.tfvars.example). Never commit them."
+  type        = map(string)
+  sensitive   = true
+  default     = {}
+}
+
+variable "inputs" {
+  description = "Required values the API does not return, key \\"<object>:<attribute>\\"."
+  type        = map(string)
+  default     = {}
+}
+''')
+    with open(os.path.join(out, "imports.tf"), "w") as fh:
+        fh.write(header + "# Adopt the existing objects; remove this file after the first successful apply.\n\n"
+                 + "\n".join(f"import {{\n  to = {addr}\n  id = {hcl(iid)}\n}}\n" for addr, iid in t.imports))
+    secrets, inputs = t.secrets(), t.inputs()
+    with open(os.path.join(out, "terraform.tfvars.example"), "w") as fh:
+        fh.write("# Copy to terraform.tfvars (never commit it) or pass TF_VAR_secrets / TF_VAR_inputs as JSON.\n"
+                 + H.tfvars_map("secrets", {k: '""' for k in secrets}) + "\n"
+                 + H.tfvars_map("inputs", {k: hcl(H.example_value(v)) for k, v in inputs.items()}))
+    n_res = sum(len(rs) for f in t.files.values() for rs in f.values())
+    report.append(f"- hcl: {n_res} resource(s) in {len(written)} file(s) laid out like raw/, {len(t.imports)} import "
+                  f"block(s) in hcl/imports.tf; {len(secrets)} secret(s) and {len(inputs)} required input(s) to provide "
+                  "(hcl/terraform.tfvars.example)")
+    report.append("- hcl: every JSON field that was not translated is kept as a `# raw ...` comment above its resource")
+    report.append("- next: cd hcl && terraform init && terraform plan  (imports only, no changes expected)")
 
 
 if __name__ == "__main__":

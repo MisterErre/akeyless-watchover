@@ -1,0 +1,2 @@
+{"cache_enable": true, "cache_ttl": "60", "proactive_cache_enable": true, "proactive_cache_minimum_fetching_time": "5",
+ "proactive_cache_dump_interval": "1", "cache_encryption_key": "s3cr3t-cache-key"}

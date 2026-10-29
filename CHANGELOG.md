@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.7.0 - 2026-10-29
+
+Changed
+- `watchover export --hcl` writes complete Terraform resources instead of only import blocks, laid out like the exported JSON:
+  - `raw/<dir>/<name>.json` becomes `hcl/<dir>/<name>.tf`, and each directory is a module;
+  - root JSON files become root `.tf` files;
+  - `hcl/main.tf` calls the modules; `hcl/imports.tf` adopts every object (`module.roles.akeyless_role.<name>`, ...);
+  - `hcl/versions.tf` holds the providers and variables.
+- How attributes are produced:
+  - They come from the provider's own read code: each API field maps to the attribute the provider sets from it, converted to the schema type.
+  - Roles carry their rules, management-plane access and associations (in the same file).
+  - Secrets are never written: they become `var.secrets["<object>:<attribute>"]`.
+  - Required values the API does not return become `var.inputs[...]`; `terraform.tfvars.example` lists both.
+  - Every untranslated JSON field is kept as a `# raw` comment (secrets redacted).
+- `--hcl` adds the detail reads the provider uses: `target-get-details`, `get-group`, and the Gateway defaults/cache/remote access/log forwarding, migration list and allowed access. They are saved under raw/ and translated. `--no-details` skips them.
+- `--generate` now writes Terraform's own output to `hcl-generated/`, next to the translation, for comparison.
+
+Added
+- `scripts/data/provider-2.0.5.json`: per resource, the API-field -> attribute map extracted from the provider read functions, resolved through the Akeyless Go SDK structs, plus the attribute schema.
+- `scripts/tools/extract_provider_map.py` regenerates that file for another provider version.
+- Tests:
+  - the export round trip validates the module tree, checks it is fmt-clean and plans every translated resource with a mocked provider;
+  - a self-test translates every one of the 76 mapped resource types and validates and plans them;
+  - CLI/REST/replay fixtures exist for every detail read.
+
+Fixed
+- Raw JSON redaction now covers every secret-like field (e.g. AWS secret keys, Conjur API keys, cache encryption keys), not only a fixed list.
+- `akeyless_target_splunk` does not exist in provider 2.0.5. The target resource list is now derived from the provider data.
+- Described PKI issuers are saved to `raw/items/`, so a replay translates the same object.
+
 ## 1.6.1 - 2026-10-29
 
 Fixed

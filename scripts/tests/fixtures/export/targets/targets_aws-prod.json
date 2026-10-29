@@ -1,0 +1,6 @@
+{
+  "target": {"target_name": "/targets/aws-prod", "target_type": "aws", "comment": "Production AWS account",
+             "protection_key_name": "/keys/targets", "target_id": 501},
+  "value": {"aws_target_details": {"aws_access_key_id": "AKIAEXAMPLE", "aws_secret_access_key": "s3cr3t",
+                                   "aws_region": "eu-west-1", "use_gw_cloud_identity": false}}
+}

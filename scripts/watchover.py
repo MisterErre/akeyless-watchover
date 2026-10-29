@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.6.1"
+VERSION = "1.7.0"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to your AI agent). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -230,6 +230,7 @@ TOOLS: list[Tool] = [
           "AKEYLESS_ACCESS_ID=p-... AKEYLESS_ACCESS_KEY=... scripts/watchover export --out export/ --profile admin --hcl --generate",
           "AKEYLESS_TOKEN=$(scripts/watchover token) scripts/watchover export --out export/ --transport api "
           "--hcl --types targets,groups,gateway --gateway-api https://gw.example.com:8000/api/v2",
+          "scripts/watchover export --out export/ --profile admin --hcl --no-details --types roles,auth-methods",
           "scripts/watchover export --out export2/ --from-dir export/raw     # offline replay"]),
     Tool("reconcile", "Compare the governance repository (e.g. GitHub Enterprise) with live Akeyless; write a "
          "report and a patch to review. Read-only: never commits or pushes.", _rec[0], _rec[1], True,
@@ -346,8 +347,17 @@ TOOL_HOW: dict[str, list[str]] = {
                "first EMPTY page; also when the token is missing or repeats, or a page brings nothing new; it "
                "aborts after 10,000 pages instead of looping.",
                "Writes raw/ (JSON, secrets redacted) and REPORT.md (items needing a decision).",
-               "Model mode: model/*.imported.yaml + imports.tf for the kit. --hcl: hcl/imports.tf with one import "
-               "block per object; --generate runs `plan -generate-config-out` so Terraform writes the resources."],
+               "Model mode: model/*.imported.yaml + imports.tf for the kit.",
+               "--hcl: complete resources laid out like raw/ - raw/<dir>/<name>.json becomes hcl/<dir>/<name>.tf (each "
+               "directory a module), root JSON files become root .tf files; hcl/main.tf calls the modules, "
+               "hcl/imports.tf adopts every object.",
+               "Attributes follow the provider's own read code (scripts/data/provider-2.0.5.json): API field -> "
+               "attribute, converted to the schema type. Secrets become var.secrets[...], required values the API "
+               "does not return var.inputs[...] (terraform.tfvars.example); a field whose name is an attribute but "
+               "that the read code does not map is set with a VERIFY comment; untranslated fields stay as `# raw` comments.",
+               "--hcl also reads details the provider reads (target-get-details, get-group, Gateway defaults/cache/"
+               "remote access/log forwarding/migrations/allowed access); --no-details skips them. --generate adds "
+               "hcl-generated/ where Terraform writes its own resources, for comparison."],
     "reconcile": ["Gets the repository read-only: shallow clone of --ref with the push URL disabled, or reads "
                   "--repo-dir as it is. Never writes to it, never commits or pushes.",
                   "Exports roles, auth methods, folders, custom fields and key policies from Akeyless (as `export`; "

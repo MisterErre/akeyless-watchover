@@ -50,16 +50,41 @@ scripts/watchover export --out export/ --profile admin \
 Writes `model/roles/imported.yaml`, `model/auth_methods.imported.yaml`, `model/folders.imported.yaml`,
 `model/governance.imported.yaml` and `imports.tf` with the `for_each` addresses of `terraform/*.tf`.
 
-**HCL mode**: plain Terraform written by Terraform itself, for anything, including PKI issuers,
-account settings and auth-method types the YAML model doesn't cover.
+**HCL mode (`--hcl`)**: complete Terraform resources for every object Terraform can manage (PKI issuers,
+account settings, targets, groups and Gateway objects included), laid out like the exported JSON.
 ```bash
-export AKEYLESS_ACCESS_ID=p-... AKEYLESS_ACCESS_KEY=...       # read-only identity; provider env login
-scripts/watchover export --out export/ --profile admin --hcl --generate
+scripts/watchover export --out export/ --profile admin --hcl --types roles,auth-methods,folders,pki-issuers,targets
 ```
-Writes `hcl/providers.tf` and `hcl/imports.tf` (one flat import block per object). With
-`--generate` it then runs `terraform init` and `terraform plan -generate-config-out=generated.tf`:
-the provider reads every object and Terraform writes its `resource` blocks into
-`hcl/generated.tf`. Without `--generate`, run those two commands yourself in `hcl/`.
+
+| raw/ (JSON from Akeyless) | hcl/ (Terraform) |
+|---|---|
+| `roles/<name>.json` | `roles/<name>.tf`: role with its rules + its associations |
+| `auth_methods/<name>.json`, `folders/...`, `items/<issuer>.json` | same path, `.tf` |
+| `targets/<name>.json`, `groups/<name>.json` (detail reads) | same path, `.tf` (without details: `targets.tf`, `groups.tf`) |
+| `gateway/{defaults,cache,remote_access,log_forwarding}.json`, `gateway/migrations/`, `gateway/allowed_access/` | same paths (Gateway provider alias) |
+| `custom_fields.json`, `policies.json`, `account_settings.json` | `custom_fields.tf`, `policies.tf`, `account_settings.tf` |
+
+How the translation works:
+- Every directory is a module, and `hcl/main.tf` calls them. `hcl/imports.tf` adopts every object (for
+  example `module.roles.akeyless_role.<name>`); `hcl/versions.tf` holds the providers and variables.
+- Attributes come from the provider's own read code. `scripts/data/provider-2.0.5.json` maps each API field to
+  the attribute the provider sets from it, with the schema type. `scripts/tools/extract_provider_map.py`
+  regenerates the file for a new provider version.
+- Secrets are never written. They become `var.secrets["<object>:<attribute>"]`. Required values the API does
+  not return become `var.inputs[...]`. `terraform.tfvars.example` lists both.
+- A field the read code does not map, but whose name is an attribute (e.g. `delete_protection`), is set,
+  and the resource carries a "matched by field name ... (VERIFY)" comment.
+- Every JSON field that is not translated stays as a `# raw <field> = <value>` comment above its resource,
+  with secrets redacted.
+- With `--hcl`, the export also makes the detail reads the provider uses: `target-get-details`, `get-group`,
+  the Gateway defaults, cache, remote access and log forwarding, the migration list and the allowed access.
+  `--no-details` skips them.
+- `--generate` additionally writes `hcl-generated/` (flat import blocks) and runs
+  `terraform plan -generate-config-out`, so you can compare Terraform's own output with the translation.
+  It needs `AKEYLESS_ACCESS_ID`/`AKEYLESS_ACCESS_KEY`.
+
+Next: `cd export/hcl && terraform init && terraform plan`. The plan should show imports only. Any change it
+shows is an attribute to review.
 
 ## Filters
 

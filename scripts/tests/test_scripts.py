@@ -195,17 +195,83 @@ def test_export_types_and_only(tmp_path):
     assert yaml.safe_load(open(tmp_path / "model/roles/imported.yaml"))["roles"] == {}
 
 
+def _hcl_files(d):
+    return sorted(os.path.relpath(os.path.join(r, f), d) for r, _ds, fs in os.walk(d) for f in fs)
+
+
 def test_export_hcl_mode(tmp_path):
     r = export(tmp_path, "--hcl")
     assert r.returncode == 0, r.stderr
-    imports = open(tmp_path / "hcl/imports.tf").read()
-    assert imports.count("import {") == 21  # 18 + 2 targets with a known resource + 1 group (gateway not in default types)
-    for needle in ("to = akeyless_auth_method_kerberos.legacy_kerb", "to = akeyless_pki_cert_issuer.pki_issuers_payments_server",
+    hcl_dir, raw = tmp_path / "hcl", tmp_path / "raw"
+    files = _hcl_files(hcl_dir)
+    # same layout as raw/: every translated JSON file has a .tf twin at the same relative path
+    for sub in ("roles", "auth_methods", "folders"):
+        for f in os.listdir(raw / sub):
+            assert os.path.join(sub, f[:-5] + ".tf") in files, (sub, f)
+    assert "items/pki_issuers_payments-server.tf" in files and "items/payments_checkout_prod_db.tf" not in files
+    for root_file in ("custom_fields.tf", "policies.tf", "account_settings.tf", "versions.tf", "main.tf", "imports.tf",
+                      "terraform.tfvars.example"):
+        assert root_file in files, root_file
+    # complete resources, not just import blocks
+    role = (hcl_dir / "roles/governance_roles_payments_team-admin.tf").read_text()
+    for needle in ('resource "akeyless_role"', 'audit_access      = "scoped"', 'capability = ["create", "list", "read"]',
+                   'rule_type  = "sra-rule"', 'sub_claims     = { "groups" = "grp-a,grp-b" }', 'case_sensitive = "false"',
+                   "temporary rule skipped"):
+        assert needle in role, needle
+    oidc = (hcl_dir / "auth_methods/governance_auth_sso.tf").read_text()
+    for needle in ('issuer               = "https://login.microsoftonline.com/t/v2.0"', 'bound_ips            = ["10.0.0.0/8", "192.168.0.0/16"]',
+                   'client_secret        = var.secrets["/governance/auth/sso:client_secret"]', "jwt_ttl              = 60"):
+        assert needle in oidc, needle
+    assert 'description       = "Payments BU"' in (hcl_dir / "folders/payments.tf").read_text()
+    assert "max_rotation_interval_days = 365" in (hcl_dir / "policies.tf").read_text()
+    assert '# raw access_info.kerberos_access_rules.realm = "EX.COM"' in (hcl_dir / "auth_methods/legacy_kerb.tf").read_text()
+    # secrets never written, even in comments
+    alltext = "".join((hcl_dir / f).read_text() for f in files)
+    for secret in ("s3cr3t", "PUBLICKEYDATA"):
+        assert secret not in alltext and secret not in "".join((raw / f).read_text() for f in _hcl_files(raw))
+    assert '"/governance/auth/sso:client_secret" = ""' in (hcl_dir / "terraform.tfvars.example").read_text()
+    imports = (hcl_dir / "imports.tf").read_text()
+    for needle in ("to = module.auth_methods.akeyless_auth_method_kerberos.legacy_kerb",
+                   "to = module.items.akeyless_pki_cert_issuer.pki_issuers_payments_server",
                    "to = akeyless_account_settings.account_settings", "to = akeyless_policy_keys.payments\n",
                    'id = "/governance/roles/payments/team-admin:/governance/auth/ci-terraform"'):
         assert needle in imports, needle
-    assert "api_gateway_address" in open(tmp_path / "hcl/providers.tf").read()
+    assert 'module "roles"' in (hcl_dir / "main.tf").read_text()
+    assert "api_gateway_address" in (hcl_dir / "versions.tf").read_text()
     assert not (tmp_path / "imports.tf").exists()
+
+
+def test_hcl_translation_rules():
+    import akl_hcl as H
+    assert H.coerce("a, b", ["list", "string"]) == ["a", "b"] and H.coerce(True, "string") == "true"
+    assert H.coerce("60", "number") == 60 and H.coerce("false", "bool") is False
+    assert H.transform(["x", "y"], "join_comma") == "x,y" and H.transform(True, "not_tostring") == "false"
+    assert H.get_path({"policy": {"path": "/a"}}, ["policy", "path"]) == "/a"
+    assert H.get_path({"path": "/a"}, ["policy", "path"]) == "/a"           # list endpoints: inner object
+    assert H.get_path({"body": {"m": [{"g": {"n": 1}}]}}, ["body", "m", "g", "n"]) == 1
+    assert H.lit("${x}") == '"$${x}"' and H.lit({"a": ["b"]}) == '{ "a" = ["b"] }'
+    assert H.is_secret("client_secret", ["string", "O", False]) and not H.is_secret("key", ["string", "O", False])
+    assert H.placeholder("inputs", "k", "number") == 'tonumber(var.inputs["k"])'
+
+
+def test_provider_mapping_data_covers_every_emitted_resource():
+    import akl_export as E
+    import akl_hcl as H
+    emitted = ["akeyless_role", "akeyless_associate_role_auth_method", "akeyless_folder", "akeyless_account_custom_field",
+               "akeyless_policy_keys", "akeyless_pki_cert_issuer", "akeyless_account_settings", "akeyless_group",
+               "akeyless_gateway_defaults", "akeyless_gateway_cache", "akeyless_gateway_remote_access",
+               "akeyless_gateway_allowed_access"]
+    emitted += [f"akeyless_auth_method_{t}" for t, _m in E.AM_RULES.values()] + \
+               [f"akeyless_auth_method_{t}" for t in E.OTHER_AM_RESOURCE.values()]
+    emitted += [f"akeyless_target_{t}" for t in E.TARGET_RESOURCES]
+    emitted += [f"akeyless_gateway_migration_{t}" for t in E.GW_MIGRATIONS.values()]
+    emitted += [f"akeyless_gateway_log_forwarding_{t}" for t in E.GW_LOG_CONFIGS.values()]
+    missing = [r for r in emitted if r not in H.DATA]
+    assert not missing, missing
+    # read mappings exist for the families the provider reads directly
+    for r in ("akeyless_auth_method_oidc", "akeyless_pki_cert_issuer", "akeyless_target_aws", "akeyless_gateway_defaults",
+              "akeyless_gateway_migration_conjur", "akeyless_account_settings"):
+        assert H.DATA[r]["map"], r
 
 
 @pytest.mark.parametrize("args", [["--types", "secrets"], ["--generate"], ["--persona-claim", "a=b"],
@@ -278,19 +344,43 @@ def test_transports_produce_identical_output(tmp_path, mode):
 def test_export_targets_groups_gateway_hcl(tmp_path):
     r = export(tmp_path, "--hcl", "--types", "targets,groups,gateway")
     assert r.returncode == 0, r.stderr
-    imports = open(tmp_path / "hcl/imports.tf").read()
-    for needle in ("to = akeyless_target_aws.targets_aws_prod", "to = akeyless_target_lets_encrypt.targets_letsencrypt",
-                   "to = akeyless_group.groups_payments_oidc_app",
-                   "to       = akeyless_gateway_defaults.gateway_defaults\n  provider = akeyless.gateway",
-                   "akeyless_gateway_cache.gateway_cache", "akeyless_gateway_remote_access.gateway_remote_access",
-                   "to       = akeyless_gateway_log_forwarding_syslog.log_forwarding",
-                   "to       = akeyless_gateway_migration_conjur.conjur_prod",
-                   "to       = akeyless_gateway_allowed_access.platform_admins"):
+    h = tmp_path / "hcl"
+    files = _hcl_files(h)
+    for f in ("targets/targets_aws-prod.tf", "groups/groups_payments-oidc-app.tf", "gateway/defaults.tf",
+              "gateway/cache.tf", "gateway/remote_access.tf", "gateway/log_forwarding.tf",
+              "gateway/migrations/conjur-prod.tf", "gateway/allowed_access/platform-admins.tf", "targets.tf"):
+        assert f in files, f
+    for f in ("targets/targets_aws-prod.json", "groups/groups_payments-oidc-app.json", "gateway/defaults.json",
+              "gateway/migrations/conjur-prod.json", "gateway/allowed_access/platform-admins.json"):
+        assert (tmp_path / "raw" / f).exists(), f
+    aws = (h / "targets/targets_aws-prod.tf").read_text()
+    assert 'region                = "eu-west-1"' in aws and 'access_key            = var.secrets["/targets/aws-prod:access_key"]' in aws
+    assert "user_assignment = jsonencode(" in (h / "groups/groups_payments-oidc-app.tf").read_text()
+    mig = (h / "gateway/migrations/conjur-prod.tf").read_text()
+    assert 'target_location = "/conjur"' in mig and 'conjur_api_key  = var.secrets["conjur-prod:conjur_api_key"]' in mig
+    assert 'host          = "siem.example.com:6514"' in (h / "gateway/log_forwarding.tf").read_text()
+    assert "akeyless = akeyless.gateway" in (h / "main.tf").read_text()
+    imports = (h / "imports.tf").read_text()
+    for needle in ("to = module.targets.akeyless_target_aws.targets_aws_prod",
+                   "to = akeyless_target_lets_encrypt.targets_letsencrypt",
+                   "to = module.groups.akeyless_group.groups_payments_oidc_app",
+                   "to = module.gateway.akeyless_gateway_defaults.defaults",
+                   "to = module.gateway.module.migrations.akeyless_gateway_migration_conjur.conjur_prod",
+                   "to = module.gateway.module.allowed_access.akeyless_gateway_allowed_access.platform_admins"):
         assert needle in imports, needle
     assert "mystery" not in imports
-    report = open(tmp_path / "REPORT.md").read()
+    report = (tmp_path / "REPORT.md").read_text()
     assert "quantum_vault" in report and "lets_encrypt` mapped to akeyless_target_lets_encrypt by name - VERIFY" in report
-    assert 'alias               = "gateway"' in open(tmp_path / "hcl/providers.tf").read()
+    assert 'alias               = "gateway"' in (h / "versions.tf").read_text()
+    assert "s3cr3t" not in "".join((h / f).read_text() for f in files)
+
+
+def test_export_hcl_without_details_keeps_list_layout(tmp_path):
+    r = export(tmp_path, "--hcl", "--types", "targets,groups", "--no-details")
+    assert r.returncode == 0, r.stderr
+    files = _hcl_files(tmp_path / "hcl")
+    assert "targets.tf" in files and "groups.tf" in files and not any(f.startswith(("targets/", "groups/")) for f in files)
+    assert 'user_assignment = var.inputs["/groups/payments-oidc-app:user_assignment"]' in (tmp_path / "hcl/groups.tf").read_text()
 
 
 @pytest.mark.parametrize("args", [["--transport", "api"],                       # no token

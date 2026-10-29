@@ -12,7 +12,7 @@ compatibility: >-
   pyyaml, Terraform >= 1.7 or OpenTofu >= 1.8, and the akeyless CLI or network access to the
   Akeyless API for live commands.
 metadata:
-  version: "1.6.1"
+  version: "1.7.0"
   repository: https://github.com/MisterErre/akeyless-watchover
 ---
 
@@ -168,7 +168,7 @@ Workflows:
 | "Add/change access for team X" | change only that BU's role file + expectations; mention CODEOWNERS approval |
 | "Set up the repo/pipeline" | `bootstrap/` once (admin), copy `ci/` template, set variables (references/pipeline.md) |
 | "Compare the repository with Akeyless / what changed outside Git" | `watchover reconcile --repo-url <ghe url> --profile <read-only>` (or `--repo-dir`) -> explain REPORT.md, let the user choose per difference, hand over changes.patch + proposed/ + imports.tf; verify with `terraform plan`; never commit or push |
-| "Import / export what we already have" | `watchover export`: model mode (YAML + import blocks for terraform/) or `--hcl` (Terraform writes plain HCL via `plan -generate-config-out`); filters `--types`, `--only`, `--persona-auth-method/--persona-claim` (one user's view) -> REPORT.md -> plan shows imports only (references/brownfield-import.md) |
+| "Import / export what we already have" | `watchover export`: model mode (YAML + import blocks for terraform/) or `--hcl` (complete resources laid out like raw/, one module per directory, secrets as var.secrets, untranslated fields as `# raw` comments; `--generate` adds Terraform's own output for comparison); filters `--types`, `--only`, `--persona-auth-method/--persona-claim` (one user's view) -> REPORT.md -> plan shows imports only (references/brownfield-import.md) |
 | "Migrate from Conjur" | Gateway migration for values + `scripts/conjur2akeyless.py` for RBAC (references/conjur-migration.md) |
 | "Certificates" | `pki.yaml` ca_keys/issuers + requester roles + expiry forwarder (references/pki.md) |
 | "Prove who can access what" | `akl_simulate.py` offline, `akl_verify.py` live with persona profiles, Impersonate As |

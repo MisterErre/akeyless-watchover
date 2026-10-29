@@ -23,6 +23,8 @@ review and commit.
   `scripts/watchover validate-skill`.
 - New Terraform guard: precondition in `terraform/main.tf`, a negative fixture, a `run` in
   `terraform/tests/model.tftest.hcl` and the message in `terraform/tests/guard_messages.sh`.
+- Provider upgrade: regenerate `scripts/data/provider-<version>.json` with `scripts/tools/extract_provider_map.py`
+  (instructions in its docstring), then run the tests (they include a translation self-test of every resource).
 - Never invent Akeyless CLI flags, API fields or provider arguments. Unconfirmed facts are marked
   **VERIFY** and listed in `docs/limitations.md`.
 - Never commit secrets, state files or `export/` output.

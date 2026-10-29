@@ -336,8 +336,9 @@ def examples(sb: Sandbox) -> dict[str, list]:
     ex("simulate", f"scripts/watchover simulate --model terraform/model {AT} --explain", max_lines=10, head=7)
     ex("verify", f"scripts/watchover verify {AT}", "The stand-in account has one console change that is not in Git:",
        max_lines=12, head=5)
-    ex("export", "scripts/watchover export --out export/ --profile admin --types roles,auth-methods "
-       "&& head -n 8 export/imports.tf")
+    ex("export", "scripts/watchover export --out export/ --profile admin --hcl --types roles,auth-methods,targets "
+       "&& find export/raw/roles export/hcl/roles -type f | sort && sed -n '2,15p' export/hcl/auth_methods/governance_auth_sso.tf",
+       "HCL mode: the same layout as the JSON, complete resources, the secret as a variable:", max_lines=26, head=26)
     ex("reconcile", GHE_SETUP + "scripts/watchover reconcile --repo-url file://$PWD/../ghe.git "
        "--from-dir scripts/tests/fixtures/export --out reconcile/; rc=$?; sed -n '20,31p' reconcile/REPORT.md; exit $rc",
        "The stand-in GitHub Enterprise repository has one role changed in the console, one role created there and "

@@ -1,0 +1,2 @@
+{"group_name": "/groups/payments-oidc-app", "group_alias": "payments", "description": "Payments OIDC app users",
+ "group_id": "g-1", "user_assignments": [{"access_id": "p-sso", "sub_claims": {"groups": ["grp-a"]}}]}

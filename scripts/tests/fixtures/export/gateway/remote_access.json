@@ -1,0 +1,2 @@
+{"global": {"allowed_ssh_url": "ssh.example.com:22", "allowed_bastion_urls": ["https://bastion.example.com"],
+            "legacy_signing_alg": false}}

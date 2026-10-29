@@ -95,7 +95,10 @@ scripts/watchover verify --expectations terraform/model/access_expectations.yaml
 \item Reads the selected object families through the CLI (\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}json}) or the REST API (token); filters by name, root folder, depth or persona.
 \item Pagination: the CLI returns a \texttt{next\_\allowbreak{}page} token even after the last page, so reading stops at the first EMPTY page; also when the token is missing or repeats, or a page brings nothing new; it aborts after 10,000 pages instead of looping.
 \item Writes raw/ (JSON, secrets redacted) and REPORT.md (items needing a decision).
-\item Model mode: model/*.imported.yaml + imports.tf for the kit. \mbox{-}\mbox{-}hcl: hcl/imports.tf with one import block per object; \mbox{-}\mbox{-}generate runs \texttt{plan -\allowbreak{}generate-\allowbreak{}config-\allowbreak{}out} so Terraform writes the resources.
+\item Model mode: model/*.imported.yaml + imports.tf for the kit.
+\item \mbox{-}\mbox{-}hcl: complete resources laid out like raw/ - raw/\textless{}dir\textgreater{}/\textless{}name\textgreater{}.json becomes hcl/\textless{}dir\textgreater{}/\textless{}name\textgreater{}.tf (each directory a module), root JSON files become root .tf files; hcl/main.tf calls the modules, hcl/imports.tf adopts every object.
+\item Attributes follow the provider's own read code (scripts/data/provider-2.0.5.json): API field -\textgreater{} attribute, converted to the schema type. Secrets become var.secrets[...], required values the API does not return var.inputs[...] (terraform.tfvars.example); a field whose name is an attribute but that the read code does not map is set with a VERIFY comment; untranslated fields stay as \texttt{\# raw} comments.
+\item \mbox{-}\mbox{-}hcl also reads details the provider reads (target-get-details, get-group, Gateway defaults/cache/remote access/log forwarding/migrations/allowed access); \mbox{-}\mbox{-}no-details skips them. \mbox{-}\mbox{-}generate adds hcl-generated/ where Terraform writes its own resources, for comparison.
 \end{itemize}
 }
 \refrow{Exit codes}{0 written; 2 read/HTTP error or invalid options}
@@ -120,8 +123,9 @@ scripts/watchover verify --expectations terraform/model/access_expectations.yaml
 \texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}max-\allowbreak{}depth} & \texttt{MAX\_\allowbreak{}DEPTH} & default 20 & maximum folder depth of the walk \\
 \texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}persona-\allowbreak{}auth-\allowbreak{}method} & \texttt{PERSONA\_\allowbreak{}AUTH\_\allowbreak{}METHOD} & optional & keep one identity's view: its auth method ... \\
 \texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}persona-\allowbreak{}claim} & \texttt{PERSONA\_\allowbreak{}CLAIM} & \emph{repeatable} & ... and its claims, key=value (repeatable); keeps roles whose association matches \\
-\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}hcl} & -- & optional & write plain Terraform import blocks for every object (hcl/) \\
-\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}generate} & -- & optional & with \mbox{-}\mbox{-}hcl: run 'terraform plan -generate-config-out' (needs terraform and AKEYLESS\_ACCESS\_ID/AKEYLESS\_ACCESS\_KEY in the environment) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}hcl} & -- & optional & write complete Terraform resources laid out like raw/ (hcl/: one module per directory) plus import blocks \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}no-\allowbreak{}details} & -- & optional & \mbox{-}\mbox{-}hcl: skip the detail reads (target details, groups, Gateway parts); fewer attributes \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}generate} & -- & optional & with \mbox{-}\mbox{-}hcl: also write hcl-generated/ (flat import blocks) and run 'terraform plan -generate-config-out' there, to compare Terraform's own output with the translation (needs terraform and AKEYLESS\_ACCESS\_ID/AKEYLESS\_ACCESS\_KEY in the environment) \\
 \texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}terraform} & \texttt{TERRAFORM} & default terraform & terraform or tofu binary used by \mbox{-}\mbox{-}generate \\
 \bottomrule
 \end{longtable}}
@@ -133,6 +137,7 @@ scripts/watchover export --out export/ --profile admin --types auth-methods --on
 scripts/watchover export --out export/ --profile admin --persona-auth-method /governance/auth/sso-entra-oidc --persona-claim email=alice@example.com --persona-claim groups=grp-akl-payments-admins
 AKEYLESS_ACCESS_ID=p-... AKEYLESS_ACCESS_KEY=... scripts/watchover export --out export/ --profile admin --hcl --generate
 AKEYLESS_TOKEN=$(scripts/watchover token) scripts/watchover export --out export/ --transport api --hcl --types targets,groups,gateway --gateway-api https://gw.example.com:8000/api/v2
+scripts/watchover export --out export/ --profile admin --hcl --no-details --types roles,auth-methods
 scripts/watchover export --out export2/ --from-dir export/raw     # offline replay
 \end{Verbatim}
 \paragraph{Sample run}\leavevmode

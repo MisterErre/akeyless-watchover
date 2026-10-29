@@ -1,0 +1,2 @@
+{"name": "platform-admins", "description": "Platform administrators", "access_id": "p-sso",
+ "permissions": ["admin", "defaults"], "sub_claims": {"groups": ["grp-platform"]}, "sub_claims_case_insensitive": false}

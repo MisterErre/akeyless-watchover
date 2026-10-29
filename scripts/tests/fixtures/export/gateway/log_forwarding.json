@@ -1,0 +1,3 @@
+{"logan_enable": true, "target_log_type": "syslog", "pull_interval_sec": "10",
+ "syslog_config": {"syslog_host": "siem.example.com:6514", "syslog_network": "tcp", "syslog_formatter": "text",
+                   "syslog_enable_tls": true}}

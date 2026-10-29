@@ -33,6 +33,11 @@
 * Export: `target_type` strings other than aws, azure, gcp, k8s and hashi_vault (matched by name);
   the CLI command name `list-groups` (REST `/list-group`); the shape of `admins.allowed_access`
   and the log-forwarding type in `gateway-get-config`; `/configure` and `/connect` over REST.
+* HCL export: the CLI command names of the detail reads (`target-get-details`, `get-group`, `gateway-get-*`,
+  `gateway-list-migration`) are taken from the REST paths. Attributes the provider fills with custom read logic
+  are kept as `# raw` comments, not translated: the PKI issuer `ttl` format, `expiration_event_in`,
+  `allowed_extra_extensions`, the log-forwarding `output_format`, and the log-forwarding types other than
+  syslog. The detail fixtures are built from the Go SDK structs; they were not captured from a live account.
 * Reconcile: which exported fields are provider defaults (shown as "only in Akeyless", not proposed
   unless `--include-unmodelled`) and which model fields the export cannot read ("only in the repository").
 * GitHub Enterprise Cloud with data residency (`*.ghe.com`): the OIDC issuer differs from

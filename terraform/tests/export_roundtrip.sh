@@ -47,5 +47,33 @@ echo "ok    model mode: exported model plans (mocked provider)"
 
 python3 "$repo/scripts/akl_export.py" --out "$work/hcl" --from-dir "$repo/scripts/tests/fixtures/export" --hcl \
   --types roles,auth-methods,folders,custom-fields,key-policies,pki-issuers,account-settings,targets,groups,gateway >/dev/null
-(cd "$work/hcl/hcl" && "$TF" init -backend=false -input=false >/dev/null && "$TF" validate >/dev/null)
-echo "ok    hcl mode (all types incl. gateway): providers.tf + imports.tf validate"
+h="$work/hcl/hcl"
+"$TF" fmt -check -recursive "$h" >/dev/null
+(cd "$h" && "$TF" init -backend=false -input=false >/dev/null && "$TF" validate >/dev/null)
+echo "ok    hcl mode (all types incl. gateway): module tree like raw/ + imports validate, fmt-clean"
+# plan the translated resources with a mocked provider (import blocks cannot run against mocks)
+rm "$h/imports.tf"
+cp "$h/terraform.tfvars.example" "$h/terraform.tfvars"
+echo 'gateway_api = "https://gw.example.com:8000/api/v2"' >> "$h/terraform.tfvars"
+mkdir -p "$h/tests"
+cat > "$h/tests/plan.tftest.hcl" <<'HCL'
+mock_provider "akeyless" {}
+mock_provider "akeyless" {
+  alias = "gateway"
+}
+run "translation_plans" {
+  command = plan
+  assert {
+    condition     = akeyless_account_settings.account_settings.company_name == "Example"
+    error_message = "account settings not translated"
+  }
+}
+HCL
+(cd "$h" && "$TF" test >/dev/null)
+echo "ok    hcl mode: every translated resource plans (mocked provider)"
+
+# every resource type of the provider mapping: translated attributes have valid names and types, and plan
+st="$work/selftest"
+python3 "$repo/scripts/tests/hcl_selftest.py" "$st" >/dev/null
+(cd "$st" && "$TF" fmt -check >/dev/null && "$TF" init -backend=false -input=false >/dev/null && "$TF" test >/dev/null)
+echo "ok    hcl translation self-test: every mapped resource type validates and plans (mocked provider)"

@@ -1,0 +1,4 @@
+{"body": {"conjur_migrations": [{"general": {"name": "conjur-prod", "id": "mig-1", "type": "conjur", "prefix": "/conjur",
+                                             "protection_key": "/keys/migration"},
+                                 "payload": {"conjur_url": "https://conjur.example.com", "conjur_account": "acme",
+                                             "conjur_username": "host/akeyless-migration", "conjur_api_key": "s3cr3t"}}]}}

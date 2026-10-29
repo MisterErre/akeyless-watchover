@@ -6,6 +6,7 @@ Both speak the operations listed in akl_export.OPS, so the same fixture data can
 import glob
 import json
 import os
+import re
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -79,7 +80,29 @@ def respond(op, params):
         return paged("groups", _one("groups.json", []))
     if op == "gateway-get-config":
         return _one("gateway_config.json", {})
+    fn = (re.sub(r"[^A-Za-z0-9_.-]", "_", str(params.get("name", "")).strip("/")) or "root") + ".json"
+    if op == "target-get-details":
+        return _required(os.path.join("targets", fn), params)
+    if op == "get-group":
+        return _required(os.path.join("groups", fn), params)
+    if op in ("gateway-get-defaults", "gateway-get-cache", "gateway-get-remote-access", "gateway-get-log-forwarding"):
+        return _required(os.path.join("gateway", op[len("gateway-get-"):].replace("-", "_") + ".json"), params)
+    if op == "gateway-list-migration":
+        body: dict = {}
+        for m in _load(os.path.join("gateway", "migrations")):
+            for kind, lst in m["body"].items():
+                body.setdefault(kind, []).extend(lst)
+        return {"body": body}
+    if op == "gateway-get-allowed-access":
+        return _required(os.path.join("gateway", "allowed_access", fn), params)
     raise NotFound(op)
+
+
+def _required(rel, params):
+    p = os.path.join(FX, rel)
+    if not os.path.exists(p):
+        raise NotFound(params.get("name") or rel)
+    return json.load(open(p))
 
 
 # ---------------------------------------------------------------- REST
