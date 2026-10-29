@@ -115,7 +115,7 @@ account_settings_cli:              # applied by scripts/akl_account_settings.py
 
 event_forwarders:
   /governance/events/<name>:
-    type: email                    # email | webhook | slack | teams
+    type: email                    # email | webhook | slack | teams | service_now
     event_types: [certificate-pending-expiration, ...]   # validated list, see main.tf
     runner_type: immediate         # immediate | periodic (teams: required)
     every: 24                      # hours, periodic only
@@ -126,9 +126,22 @@ event_forwarders:
     gateways_event_source_locations: []     # teams uses gateway_event_source_locations (required)
     key: /optional/protection-key
     # email:   email_to (list|string), include_error, override_url
-    # webhook: url, auth_type (user-pass|bearer-token|certificate), username, password_var, auth_token_var
+    # webhook: url, auth_type (user-pass|bearer-token|certificate), username, password_var, auth_token_var,
+    #          client_cert_data_var, private_key_data_var, server_certificates_var
     # slack:   url_var        teams: url_var
+    # service_now: host, auth_type (user-pass|jwt); user-pass: admin_name, admin_pwd_var;
+    #          jwt: client_id, user_email, client_secret_var, app_private_key_var
 ```
+
+`*_var` values are keys of the `event_forwarder_secrets` variable (`TF_VAR_event_forwarder_secrets`, a JSON
+map kept in CI secrets); secrets never go in the model. Guards: valid type and event types, `every` with
+`runner_type: periodic`, `url_var` for slack/teams, `gateway_event_source_locations` + `runner_type` for teams.
+
+Akeyless has no operation that lists event forwarders, so `watchover export` cannot read them. Write new
+ones with `watchover forwarder` (validated entry, `--write` inserts it here, `--format hcl` for plain
+Terraform); adopt an existing one whose name you know with `--import-existing` (import ID = name).
+Presets: `certificates`, `auth-methods`, `rotation`, `secrets`, `access-requests`, `operations`, `critical`
+(see `watchover help forwarder`).
 
 ## `pki.yaml`
 

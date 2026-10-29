@@ -42,7 +42,7 @@ Map plain requests to the closest command. Without arguments, ask for the one mi
 | `import` | [what to export: everything / a type / one user's view] [export directory or REPORT.md] | The exact `watchover export` command (model or --hcl mode, filters), then resolution of every REPORT.md item and the import checklist until the plan shows imports only. |
 | `conjur` | <Conjur policy YAML> | Translated roles, bindings to fill (auth method + sub-claims), migration resource, cut-over plan. |
 | `pki` | <certificate requirements> | pki.yaml (CA keys, issuers), requester roles, expiry forwarder, CLI to issue/revoke. |
-| `harden` | [current settings or concerns] | governance.yaml: account_settings (Terraform), account_settings_cli (CLI), custom fields, key policies, event forwarders. |
+| `harden` | [current settings or concerns] | governance.yaml: account_settings (Terraform), account_settings_cli (CLI), custom fields, key policies, event forwarders (scaffolded with `watchover forwarder`). |
 | `gateway` | <who administers which Gateway, SIEM target> | gateway.yaml (allowed_access, log_forwarding), gateway_api setup. |
 | `verify` | [persona / path] | access_expectations.yaml checks, `watchover simulate` / `watchover verify` commands, Impersonate As steps. |
 | `cli` | <task> | Commands checked against the CLI reference, with the equivalent model change. |
@@ -124,7 +124,7 @@ terraform/   versions.tf main.tf auth_methods.tf roles.tf governance.tf pki.tf g
              model/{auth_methods,folders,governance,pki,gateway,access_expectations}.yaml model/roles/<bu>.yaml
              tests/model.tftest.hcl tests/fixtures/* tests/guard_messages.sh
 bootstrap/   CI OAuth2/JWT auth method + terraform-plan / terraform-apply roles (separate state)
-scripts/     watchover (entry point: test, simulate, verify, export, conjur, account-settings, token,
+scripts/     watchover (entry point: test, simulate, verify, export, forwarder, conjur, account-settings, token,
              build-skill, help) + the scripts it dispatches to
 ci/          github/akeyless-governance.yml gitlab/.gitlab-ci.yml CODEOWNERS.example
 ```

@@ -117,7 +117,7 @@ locals {
   }
   gateway_permissions = ["defaults", "targets", "classic_keys", "automatic_migration", "ldap_auth", "dynamic_secret", "k8s_auth", "log_forwarding", "zero_knowledge_encryption", "rotated_secret", "caching", "event_forwarding", "admin", "kmip", "general", "rotate_secret_value"]
   event_types         = ["request-access", "certificate-pending-expiration", "certificate-expired", "certificate-provisioning-success", "certificate-provisioning-failure", "auth-method-pending-expiration", "auth-method-expired", "next-automatic-rotation", "rotated-secret-success", "rotated-secret-failure", "dynamic-secret-failure", "multi-auth-failure", "uid-rotation-failure", "apply-justification", "email-auth-method-approved", "usage", "rotation-usage", "gateway-inactive", "static-secret-updated", "rate-limiting", "usage-report", "secret-sync"]
-  forwarder_types     = ["email", "webhook", "slack", "teams"]
+  forwarder_types     = ["email", "webhook", "slack", "teams", "service_now"]
   custom_field_types  = ["STATIC_SECRET", "DYNAMIC_SECRET", "ROTATED_SECRET"]
 
   object_names = concat(keys(local.roles), keys(local.auth_methods), keys(local.folders), keys(local.ca_keys), keys(local.issuers))
@@ -221,7 +221,15 @@ resource "terraform_data" "model_guards" {
     precondition {
       condition = alltrue([for n, f in local.event_forwarders :
       contains(local.forwarder_types, try(f.type, "")) && length(setsubtract(try(f.event_types, []), local.event_types)) == 0])
-      error_message = "event_forwarders: type must be email|webhook|slack|teams and event_types must be valid Akeyless event types."
+      error_message = "event_forwarders: type must be email|webhook|slack|teams|service_now and event_types must be valid Akeyless event types."
+    }
+    precondition {
+      condition     = alltrue([for n, f in local.event_forwarders : try(f.runner_type, "immediate") != "periodic" || try(f.every, null) != null])
+      error_message = "event_forwarders: runner_type periodic requires 'every' (hours)."
+    }
+    precondition {
+      condition     = alltrue([for n, f in local.event_forwarders : !contains(["slack", "teams"], try(f.type, "")) || try(f.url_var, null) != null])
+      error_message = "event_forwarders: slack and teams need url_var (the webhook URL is a secret)."
     }
     precondition {
       condition     = alltrue([for n, f in local.event_forwarders : try(f.type, "") != "teams" || (length(try(f.gateway_event_source_locations, [])) > 0 && try(f.runner_type, null) != null)])

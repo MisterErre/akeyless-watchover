@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to Claude). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -197,6 +197,7 @@ def _test_run(argv):
 _sim = _module_tool("akl_simulate")
 _ver = _module_tool("akl_verify")
 _exp = _module_tool("akl_export")
+_fw = _module_tool("akl_forwarder")
 _cj = _module_tool("conjur2akeyless")
 _acc = _module_tool("akl_account_settings")
 
@@ -218,6 +219,16 @@ TOOLS: list[Tool] = [
           "AKEYLESS_TOKEN=$(scripts/watchover token) scripts/watchover export --out export/ --transport api "
           "--hcl --types targets,groups,gateway --gateway-api https://gw.example.com:8000/api/v2",
           "scripts/watchover export --out export2/ --from-dir export/raw     # offline replay"]),
+    Tool("forwarder", "Scaffold a new event forwarder (model entry or HCL); --import-existing adopts one by name.",
+         _fw[0], _fw[1], False,
+         ["scripts/watchover forwarder --name /governance/events/secops-mail --type email --email-to secops@example.com "
+          "--preset critical --items-source '/*' --auth-method-source '/*'",
+          "scripts/watchover forwarder --name /governance/events/pki-slack --type slack --preset certificates "
+          "--items-source '/pki/*' --write terraform/model/governance.yaml",
+          "scripts/watchover forwarder --name /governance/events/siem --type webhook --url https://siem.example.com/akeyless "
+          "--auth-type bearer-token --preset critical --auth-method-source '/*' --format hcl",
+          "scripts/watchover forwarder --name /governance/events/legacy-mail --type email --email-to ops@example.com "
+          "--event certificate-expired --items-source '/*' --import-existing"]),
     Tool("conjur", "Translate Conjur policy into model roles + identity bindings.", _cj[0], _cj[1], False,
          ["scripts/watchover conjur root.yml prod.yml --item-prefix /conjur --out export/conjur"]),
     Tool("account-settings", "Apply account_settings_cli (settings the provider cannot manage) with the CLI.",

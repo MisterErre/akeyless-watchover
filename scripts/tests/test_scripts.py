@@ -359,3 +359,73 @@ def test_unknown_command_and_topic():
 def test_dispatch_simulate():
     assert watchover.main(["simulate", "--model", os.path.join(REPO, "terraform/model"),
                            "--expectations", os.path.join(REPO, "terraform/model/access_expectations.yaml")]) == 0
+
+
+# ---------- forwarder scaffolding ----------
+import akl_forwarder as fw  # noqa: E402
+
+
+def _fw(*argv):
+    return fw.build_entry(fw.build_parser().parse_args(list(argv)))
+
+
+def test_forwarder_presets_use_only_valid_event_types():
+    gov_tf = open(os.path.join(REPO, "terraform", "main.tf")).read()
+    for events in fw.PRESETS.values():
+        assert set(events) <= set(fw.EVENT_TYPES)
+    for ev in fw.EVENT_TYPES:          # same list as the Terraform guard
+        assert f'"{ev}"' in gov_tf
+
+
+def test_forwarder_secrets_are_referenced_not_written():
+    e, secrets = _fw("--name", "/e/sn", "--type", "service_now", "--host", "h", "--auth-type", "jwt",
+                     "--client-id", "c", "--user-email", "u@x", "--event", "usage", "--items-source", "/*")
+    assert secrets == ["e_sn_client_secret", "e_sn_app_private_key"]
+    assert e["client_secret_var"] == "e_sn_client_secret" and "client_secret" not in e
+    e, secrets = _fw("--name", "/e/s", "--type", "slack", "--event", "usage", "--items-source", "/*")
+    assert e["url_var"] == "e_s_url" and "url" not in e
+
+
+@pytest.mark.parametrize("argv,msg", [
+    (["--type", "email", "--event", "usage", "--items-source", "/*"], "--email-to"),
+    (["--type", "email", "--email-to", "a@b", "--items-source", "/*"], "--preset"),
+    (["--type", "email", "--email-to", "a@b", "--event", "nope", "--items-source", "/*"], "unknown event"),
+    (["--type", "email", "--email-to", "a@b", "--event", "usage"], "source"),
+    (["--type", "email", "--email-to", "a@b", "--event", "usage", "--items-source", "/*", "--runner", "periodic"], "--every"),
+    (["--type", "teams", "--event", "usage", "--items-source", "/*"], "--gateway-source"),
+    (["--type", "webhook", "--url", "u", "--auth-type", "oauth", "--event", "usage", "--items-source", "/*"], "auth-type"),
+    (["--type", "service_now", "--host", "h", "--event", "usage", "--items-source", "/*"], "user-pass|jwt"),
+])
+def test_forwarder_rejects_what_terraform_would_reject(argv, msg):
+    with pytest.raises(ValueError, match=msg.replace("|", r"\|")):
+        _fw("--name", "/e/x", *argv)
+
+
+def test_forwarder_write_preserves_file_and_refuses_duplicates(tmp_path):
+    gov = tmp_path / "governance.yaml"
+    gov.write_text("# keep me\naccount_settings:\n  max_versions: 10\n\nevent_forwarders:\n  /e/a:\n    type: email\n"
+                   "    email_to: [a@b]\n    event_types: [usage]\n\n# next section\nnaming:\n  role_prefix: /r\n")
+    argv = ["--name", "/e/b", "--type", "slack", "--event", "usage", "--items-source", "/*", "--write", str(gov)]
+    fw.main(argv)
+    text = gov.read_text()
+    doc = yaml.safe_load(text)
+    assert list(doc["event_forwarders"]) == ["/e/a", "/e/b"]
+    assert doc["naming"] == {"role_prefix": "/r"} and doc["account_settings"] == {"max_versions": 10}
+    assert "# keep me" in text and text.index("/e/b") < text.index("# next section")
+    with pytest.raises(SystemExit):
+        fw.main(argv)
+    assert gov.read_text() == text
+
+
+def test_forwarder_import_block(capsys):
+    fw.main(["--name", "/e/old", "--type", "email", "--email-to", "a@b", "--event", "usage", "--items-source", "/*",
+             "--import-existing"])
+    out = capsys.readouterr().out
+    assert 'to = akeyless_event_forwarder_email.this["/e/old"]' in out and 'id = "/e/old"' in out
+
+
+def test_forwarder_fixture_is_regenerated_unchanged(tmp_path):
+    fixture = os.path.join(REPO, "terraform", "tests", "fixtures", "forwarders")
+    out = tmp_path / "governance.yaml"
+    subprocess.run(["bash", os.path.join(fixture, "generate.sh"), str(out)], check=True, capture_output=True)
+    assert out.read_text() == open(os.path.join(fixture, "governance.yaml")).read()

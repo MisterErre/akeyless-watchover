@@ -167,6 +167,49 @@ run "bad_event" {
   expect_failures = [terraform_data.model_guards]
 }
 
+run "scaffolded_forwarders_plan" {
+  # fixture written by `watchover forwarder` (tests/fixtures/forwarders/generate.sh)
+  command = plan
+  variables {
+    model_dir = "tests/fixtures/forwarders"
+    event_forwarder_secrets = {
+      governance_events_siem_token           = "dummy"
+      governance_events_pki_slack_url        = "https://hooks.slack.com/services/dummy"
+      governance_events_ops_teams_url        = "https://example.webhook.office.com/dummy"
+      governance_events_snow_client_secret   = "dummy"
+      governance_events_snow_app_private_key = "ZHVtbXk="
+    }
+  }
+  assert {
+    condition = (length(akeyless_event_forwarder_email.this) + length(akeyless_event_forwarder_webhook.this) +
+      length(akeyless_event_forwarder_slack.this) + length(akeyless_event_forwarder_teams.this) +
+    length(akeyless_event_forwarder_service_now.this)) == 5
+    error_message = "expected one forwarder of each of the 5 types"
+  }
+  assert {
+    condition     = akeyless_event_forwarder_email.this["/governance/events/secops-mail"].email_to == "secops@example.com,pam@example.com"
+    error_message = "email_to list must be joined with commas"
+  }
+  assert {
+    condition     = akeyless_event_forwarder_slack.this["/governance/events/pki-slack"].every == "24"
+    error_message = "periodic digest interval not passed"
+  }
+  assert {
+    condition     = akeyless_event_forwarder_service_now.this["/governance/events/snow"].enable == "false"
+    error_message = "--disabled must set enable = false"
+  }
+}
+run "bad_periodic" {
+  command = plan
+  variables { model_dir = "tests/fixtures/bad_periodic" }
+  expect_failures = [terraform_data.model_guards]
+}
+run "slack_no_url" {
+  command = plan
+  variables { model_dir = "tests/fixtures/slack_no_url" }
+  expect_failures = [terraform_data.model_guards]
+}
+
 run "empty_gateway_api_is_unset" {
   command = plan
   variables { gateway_api = "" }

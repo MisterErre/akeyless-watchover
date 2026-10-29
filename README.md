@@ -19,6 +19,7 @@ delivers it through one repository, one change, one pipeline.
 | "Migrate from CyberArk Conjur" | Gateway secret migration + Conjur policy translated into Akeyless roles and a bindings report |
 | "Set up internal PKI / public CA issuers" | CA key, issuers with policy, renewal, CRL/OCSP/ACME, requester roles, expiry notifications |
 | "Harden the account" | account settings (Terraform subset + CLI-only flags), mandatory custom fields, key policies |
+| "Alert SecOps by mail / Slack / Teams / webhook / ServiceNow when certificates expire or rotations fail" | `watchover forwarder`: a validated event forwarder (presets, sources, secrets as CI variables) inserted into the model, or plain HCL; `--import-existing` adopts one you already have |
 | "Who can administer the Gateway / forward audit logs?" | Gateway allowed access, SIEM log forwarding |
 | "Prove that X can / cannot access Y" | offline simulation on every PR + live verification per persona |
 | "How do I do this with the CLI?" / "API or CLI?" | exact commands checked against the CLI reference, and when to use REST instead ([docs/api-vs-cli.md](docs/api-vs-cli.md)) |
@@ -49,7 +50,7 @@ kit). Claude loads the skill automatically when you talk about Akeyless governan
 `verify`, `cli`, `explain`. Start with `/akeyless-watchover help`.
 
 **Kit commands** (terminal, in your governance repo): `scripts/watchover <command>` -
-`test`, `simulate`, `verify`, `export`, `conjur`, `account-settings`, `token`, `build-skill`,
+`test`, `simulate`, `verify`, `export`, `forwarder`, `conjur`, `account-settings`, `token`, `build-skill`,
 `help`, `version`.
 
 ```bash
@@ -70,7 +71,7 @@ terraform/   data-driven Terraform (provider akeyless-community/akeyless ~> 2.0)
   model/     YAML: roles/<bu>.yaml, auth_methods, folders, governance, pki, gateway, access_expectations
   tests/     terraform test (mocked provider), fixtures, guard_messages.sh
 bootstrap/   one-time CI identity (OAuth2/JWT trusting GitHub or GitLab OIDC) + plan/apply roles
-scripts/     watchover (entry point) + akl_simulate.py akl_verify.py akl_export.py
+scripts/     watchover (entry point) + akl_simulate.py akl_verify.py akl_export.py akl_forwarder.py
              conjur2akeyless.py akl_account_settings.py akl_ci_token.sh build_skill.sh
 ci/          GitHub Actions + GitLab CI templates, CODEOWNERS example
 docs/        full documentation (also bundled in the skill as references/)

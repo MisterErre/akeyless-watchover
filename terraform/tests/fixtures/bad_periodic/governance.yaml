@@ -1,0 +1,7 @@
+event_forwarders:
+  /governance/events/digest:
+    type: email
+    email_to: [a@example.com]
+    runner_type: periodic
+    event_types: [certificate-expired]
+    items_event_source_locations: ["/*"]

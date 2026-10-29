@@ -100,6 +100,9 @@ resource "akeyless_event_forwarder_webhook" "this" {
   username                            = try(each.value.username, null)
   password                            = try(var.event_forwarder_secrets[each.value.password_var], null)
   auth_token                          = try(var.event_forwarder_secrets[each.value.auth_token_var], null)
+  client_cert_data                    = try(var.event_forwarder_secrets[each.value.client_cert_data_var], null)
+  private_key_data                    = try(var.event_forwarder_secrets[each.value.private_key_data_var], null)
+  server_certificates                 = try(var.event_forwarder_secrets[each.value.server_certificates_var], null)
   key                                 = try(each.value.key, null)
   depends_on                          = [terraform_data.model_guards]
 }
@@ -134,6 +137,30 @@ resource "akeyless_event_forwarder_teams" "this" {
   items_event_source_locations        = try(each.value.items_event_source_locations, null)
   targets_event_source_locations      = try(each.value.targets_event_source_locations, null)
   auth_methods_event_source_locations = try(each.value.auth_methods_event_source_locations, null)
+  key                                 = try(each.value.key, null)
+  depends_on                          = [terraform_data.model_guards]
+}
+
+resource "akeyless_event_forwarder_service_now" "this" {
+  for_each                            = local.ef_by_type["service_now"]
+  name                                = each.key
+  host                                = try(each.value.host, null)
+  auth_type                           = try(each.value.auth_type, null) # user-pass | jwt
+  admin_name                          = try(each.value.admin_name, null)
+  admin_pwd                           = try(var.event_forwarder_secrets[each.value.admin_pwd_var], null)
+  client_id                           = try(each.value.client_id, null)
+  client_secret                       = try(var.event_forwarder_secrets[each.value.client_secret_var], null)
+  app_private_key_base64              = try(var.event_forwarder_secrets[each.value.app_private_key_var], null)
+  user_email                          = try(each.value.user_email, null)
+  description                         = try(each.value.description, null)
+  enable                              = try(tostring(each.value.enable), null)
+  event_types                         = try(each.value.event_types, null)
+  runner_type                         = try(each.value.runner_type, null)
+  every                               = try(tostring(each.value.every), null)
+  items_event_source_locations        = try(each.value.items_event_source_locations, null)
+  targets_event_source_locations      = try(each.value.targets_event_source_locations, null)
+  auth_methods_event_source_locations = try(each.value.auth_methods_event_source_locations, null)
+  gateways_event_source_locations     = try(each.value.gateways_event_source_locations, null)
   key                                 = try(each.value.key, null)
   depends_on                          = [terraform_data.model_guards]
 }

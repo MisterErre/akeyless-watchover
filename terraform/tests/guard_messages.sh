@@ -21,6 +21,8 @@ declare -A expect=(
   [bad_issuer]="auto_renew requires destination_path"
   [bad_gateway]="unknown permission"
   [bad_event]="event_types must be valid"
+  [bad_periodic]="runner_type periodic requires"
+  [slack_no_url]="slack and teams need url_var"
 )
 
 fail=0
