@@ -15,7 +15,7 @@ variable "auth_method_secrets" {
 }
 
 variable "event_forwarder_secrets" {
-  description = "Secrets referenced by *_var keys in model/governance.yaml event_forwarders (webhook passwords/tokens, Slack/Teams URLs)."
+  description = "Secrets referenced by *_var keys in model/governance.yaml event_forwarders (webhook passwords/tokens/certificates, Slack/Teams URLs, ServiceNow credentials)."
   type        = map(string)
   sensitive   = true
   default     = {}

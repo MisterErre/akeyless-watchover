@@ -1,0 +1,9 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover gateway platform admins full, PKI team targets only, Splunk
+
+\claude \texttt{model/gateway.yaml}: \texttt{allowed\_access} entries (platform admins through the SSO
+auth method with their group sub-claim; PKI team limited to the targets permission),
+\texttt{log\_forwarding} of type \texttt{splunk} with \texttt{splunk\_token\_var}, and the reminder to set
+\texttt{gateway\_api} -- one state per Gateway cluster.
+\end{session}

@@ -1,0 +1,9 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover pipeline gitlab acme/platform/akeyless-governance
+
+\claude \texttt{bootstrap.tfvars} (\texttt{platform = "gitlab"}, \texttt{repository = "acme/platform/akeyless-governance"},
+\texttt{gitlab\_url}), the order of steps (bootstrap as admin $\rightarrow$ CI variables $\rightarrow$
+copy \texttt{ci/gitlab/.gitlab-ci.yml} $\rightarrow$ protected branch and environment $\rightarrow$
+CODEOWNERS), the list of CI variables to create and which ones must be masked.
+\end{session}

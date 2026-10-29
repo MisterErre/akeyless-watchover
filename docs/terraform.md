@@ -46,7 +46,7 @@ Terraform. Requires Terraform >= 1.7 or OpenTofu >= 1.8.
 | associations only to modelled auth methods (or `allow_external_auth_methods`) | `unknown_am` |
 | `force_sub_claims` auth methods require sub-claims on every association | `missing_subclaims` |
 | issuer: signer xor ca_target; auto_renew needs destination_path; CRL/OCSP/ACME/public CA need gw_cluster_url | `bad_issuer` |
-| custom field object types, event forwarder types/events, teams requirements | `bad_event` |
+| custom field object types, event forwarder types/events, teams requirements, periodic runner needs `every`, slack/teams need `url_var` | `bad_event`, `bad_periodic`, `slack_no_url` |
 | gateway objects need `gateway_api`; valid gateway permissions; auth_method xor access_id; log forwarding type | `bad_gateway`, `gateway_objects_need_gateway_api`, `empty_gateway_api_is_unset` |
 
 `tests/guard_messages.sh` proves each negative fixture fails with the **intended** message

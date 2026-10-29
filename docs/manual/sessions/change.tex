@@ -1,0 +1,18 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover change give the fraud-analysts Entra group read on refunds prod
+
+\claude Smallest diff -- a new role, because no existing role has the right audience:
+\begin{lstlisting}
++  /governance/roles/payments/fraud-analysts:
++    description: Fraud analysts read refunds prod
++    rules:
++      - { path: "/payments/refunds/prod/*", capabilities: [read, list] }
++      - { path: "/payments/refunds/prod/break-glass/*", capabilities: [deny] }
++    associations:
++      - auth_method: /governance/auth/sso-entra-oidc
++        sub_claims: { groups: [grp-fraud-analysts] }
+\end{lstlisting}
+New expectations (one positive, two negative), the expected plan (+1 role, +1 association) and the
+approvers from CODEOWNERS: payments owners and the platform team.
+\end{session}

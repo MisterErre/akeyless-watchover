@@ -1,0 +1,19 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover design \emph{[attached diagram: BU Payments with apps checkout, refunds; prod and nonprod; Entra groups; EKS workloads]}
+
+\claude \textbf{1. Path tree}\quad \texttt{/payments/\{checkout,refunds\}/\{prod,nonprod\}/...},
+\texttt{/payments/<app>/prod/break-glass/...}
+
+\textbf{2. Access matrix}\quad payments-admin: nonprod CRUD, prod read; checkout-prod-pod: own prod
+read; auditor: list everything; everyone else: nothing.
+
+\textbf{3. Model}\quad \texttt{model/roles/payments.yaml} (\texttt{team-admin}, \texttt{checkout-prod-workload}, \ldots),
+\texttt{model/auth\_methods.yaml} (OIDC with \texttt{force\_sub\_claims}, K8s bound to namespace
+\texttt{payments}), \texttt{model/folders.yaml}.
+
+\textbf{4. Expectations}\quad 11 checks including the negative ones (break-glass, other BUs).
+
+\textbf{5. Plan expectations and CLI}\quad ``+ 2 roles, + 2 auth methods, + 3 associations, no
+replacements''; the equivalent \texttt{akeyless create-role / set-role-rule / assoc-role-am} commands.
+\end{session}

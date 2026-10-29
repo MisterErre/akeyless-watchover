@@ -1,0 +1,65 @@
+\chapter{Maintaining and extending the kit}\label{ch:maintenance}
+
+\section{Updating the kit in your governance repository}
+The kit is copied, not vendored, so updates are deliberate:
+\begin{enumerate}
+\item Read \texttt{CHANGELOG.md} of the new version.
+\item Copy the new \texttt{terraform/*.tf}, \texttt{terraform/tests/}, \texttt{scripts/} and CI
+  template over yours; do \emph{not} overwrite \texttt{terraform/model/}.
+\item Run \texttt{scripts/watchover test}, then open a merge request. The plan of a kit update
+  should be empty; anything else needs an explanation (usually a new optional attribute).
+\end{enumerate}
+
+\section{Upgrading the Terraform provider}
+The HCL relies on documented provider facts (Chapter~\ref{doc-terraform}, ``Provider facts''),
+checked against v2.0.5. Before raising the version constraint:
+re-check each fact in the new provider's schema and changelog, run the tests against the new
+version, and review a plan against a non-production account if you have one. Watch especially for
+newly ForceNew attributes and for changed defaults.
+
+\section{Versioning and releases}
+The kit and the skill share one version (\texttt{VERSION} in \texttt{scripts/watchover.py}),
+recorded in \texttt{CHANGELOG.md}. CI (GitHub Actions, \texttt{.github/workflows/test.yml}) runs
+the Terraform suites on both HashiCorp Terraform and OpenTofu, then the Python tests and the
+simulator, then packages the skill as an artefact.
+
+\section{Adding a kit command}
+\begin{enumerate}
+\item Write \texttt{scripts/<name>.py} with \texttt{build\_parser()} and \texttt{main(argv)};
+  every option needs a \texttt{help} text (a test enforces it).
+\item Register it in \texttt{TOOLS} in \texttt{scripts/watchover.py} with a summary and usage patterns.
+\item Add tests to \texttt{scripts/tests/test\_scripts.py}.
+\item Regenerate the usage guide (\texttt{scripts/watchover help --markdown > docs/usage-guide.md}).
+\item Add an example execution to \texttt{examples()} in \texttt{docs/manual/build.py} (the build
+  fails when a command has none) and rebuild the manual.
+\end{enumerate}
+Adding a skill command: add it to \texttt{SKILL\_COMMANDS} and to the command table in
+\texttt{skill/akeyless-watchover/SKILL.md} (a test checks they match), and write its example session
+in \texttt{docs/manual/sessions/<name>.tex}.
+
+\section{Adding a guard}
+Add a precondition to \texttt{terraform\_data.model\_guards} in \texttt{terraform/main.tf}, a
+negative fixture under \texttt{terraform/tests/fixtures/<name>/}, a \texttt{run} with
+\texttt{expect\_failures} in \texttt{tests/model.tftest.hcl}, and the expected message to
+\texttt{tests/guard\_messages.sh} so the test proves the \emph{intended} guard fired. Add the
+message to the troubleshooting table (Chapter~\ref{ch:troubleshooting}).
+
+\section{Maintaining this manual}\label{sec:manual-maintenance}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.38\linewidth}>{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Content} & \textbf{Source (edit here)} \\ \midrule
+Introduction, installation, quick start, workflows, security, troubleshooting, maintenance, appendices & \texttt{docs/manual/chapters/*.tex} \\
+Skill command example sessions & \texttt{docs/manual/sessions/*.tex} \\
+Command reference (all options, usage patterns) & \texttt{scripts/watchover.py} and each script's \texttt{build\_parser()} \\
+Example executions & \texttt{examples()} in \texttt{docs/manual/build.py} (executed at build time) \\
+Terraform variables and outputs & \texttt{variable}/\texttt{output} blocks in \texttt{terraform/} and \texttt{bootstrap/} \\
+Concept, reference and operations chapters & \texttt{docs/*.md} (converted with pandoc) \\
+Layout, title page, chapter order & \texttt{docs/manual/manual.tex} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\texttt{python3 docs/manual/build.py} regenerates \texttt{docs/manual/generated/}, executes the
+examples and writes \texttt{docs/akeyless-watchover-manual.pdf}. A Python test runs
+\texttt{build.py --check} (when pandoc is installed) so the generated reference parts cannot fall
+behind the code; rebuild the PDF whenever you change commands, options, variables or documents.

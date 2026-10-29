@@ -56,7 +56,7 @@ var-file per cluster (`gateway_api` and `model/gateway.yaml` differ).
 ## Change flow
 
 1. Engineer edits YAML (normally only `model/roles/<bu>.yaml`) and opens a merge request.
-2. `checks`: format, validate, `terraform test` (17+ cases, mocked provider), guard-message proof,
+2. `checks`: format, validate, `terraform test` (20+ cases, mocked provider), guard-message proof,
    offline access expectations (`akl_simulate.py`), script tests.
 3. `plan` with the plan identity; reviewers read the plan (CODEOWNERS: BU + platform).
 4. Merge -> `apply` (protected environment, manual approval) -> CLI-only account settings.

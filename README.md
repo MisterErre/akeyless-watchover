@@ -93,12 +93,17 @@ skill/       SKILL.md source
 
 - Facts come from docs.akeyless.io, the Akeyless OpenAPI/Go SDK v5.0.x and the provider v2.0.5
   source and schema. Anything not confirmed is marked **VERIFY** ([docs/limitations.md](docs/limitations.md)).
-- Offline tests (no Akeyless account needed): 19 Terraform test runs, plus 13 proofs that each
-  negative fixture fails with the intended guard, 3 bootstrap runs and 50 Python tests. They run on
+- Offline tests (no Akeyless account needed): 22 Terraform test runs, plus 15 proofs that each
+  negative fixture fails with the intended guard, 3 bootstrap runs and 71 Python tests. They run on
   OpenTofu and HashiCorp Terraform in this repo's CI.
 - Live checks (your account): plan review, `akl_verify.py` per persona, nightly drift.
 
 ## Documentation
 
-Start at [docs/README.md](docs/README.md): architecture, RBAC model, path and role design, model
+**PDF manual: [docs/akeyless-watchover-manual.pdf](docs/akeyless-watchover-manual.pdf)**. It covers
+installation, a quick start, everyday workflows, every skill and kit command with all options and a
+real example execution, every YAML key, Terraform variables, operations, security, troubleshooting
+and the limitations. LaTeX sources are in `docs/manual/`; rebuild with `python3 docs/manual/build.py`.
+
+Markdown version: start at [docs/README.md](docs/README.md): architecture, RBAC model, path and role design, model
 reference, Terraform, pipeline, CLI, testing, brownfield import, Conjur migration, PKI, limitations.

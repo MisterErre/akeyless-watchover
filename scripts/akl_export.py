@@ -659,7 +659,8 @@ def _main(argv: list[str] | None = None) -> None:
         fh.write(f"# Export report\n\nmode: {'hcl' if a.hcl else 'model'}; {counts}\n\n"
                  + ("\n".join(report) if report else "Nothing needs review.") + "\n")
     print(f"exported ({'hcl' if a.hcl else 'model'}): " +
-          ", ".join(f"{len(v)} {t}" for t, v in found.items() if v) + f"; {len(report)} item(s) in REPORT.md")
+          (", ".join(f"{len(v)} {t}" for t, v in found.items() if v) or "nothing matched the filters")
+          + f"; {len(report)} item(s) in REPORT.md")
 
 
 def write_model(a, found, model_roles, report):

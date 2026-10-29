@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -396,6 +397,8 @@ def cmd_help(argv: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(signal, "SIGPIPE"):          # `watchover ... | head` ends quietly instead of a BrokenPipeError
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     argv = sys.argv[1:] if argv is None else argv
     if not argv or argv[0] in ("help", "-h", "--help"):
         return cmd_help(argv[1:])

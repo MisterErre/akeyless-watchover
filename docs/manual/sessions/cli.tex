@@ -1,0 +1,11 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover cli create a temporary read rule for 60 minutes
+
+\claude \begin{lstlisting}
+akeyless set-role-rule --role-name /governance/roles/payments/team-admin \
+  --path "/payments/refunds/prod/*" --capability read --capability list --ttl 60
+\end{lstlisting}
+With the caveat that temporary rules are CLI/API-only and the next apply on that role removes
+them -- and the model change to make if the access should last.
+\end{session}

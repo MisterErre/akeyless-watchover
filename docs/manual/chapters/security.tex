@@ -1,0 +1,62 @@
+\chapter{Security considerations}\label{ch:security}
+
+Governance as code moves the power to change access into a repository and a pipeline. Protect
+them as you protect the account itself.
+
+\section{Identities}
+\begin{itemize}
+\item \textbf{The apply identity is administrator-equivalent.} Akeyless forbids granting rights you
+  do not hold (anti-escalation), so the identity that manages all roles must hold them. It is
+  bound to the repository \emph{and} its protected default branch; protect that branch (required
+  reviews, no force-push, no direct pushes) and gate the apply job with a protected environment.
+\item \textbf{The plan identity} is bound to the repository only, because it runs on merge
+  requests. Keep its rights to reading; \textbf{VERIFY} its minimum read set on your account.
+\item \textbf{No static CI credentials.} The pipeline exchanges its own OIDC token
+  (\texttt{watchover token}); nothing long-lived is stored in CI.
+\item \textbf{Bootstrap separately.} The CI identity lives in its own state so the main pipeline
+  cannot destroy its own access. Delete the admin API key used for bootstrap, or keep it as a
+  break-glass credential in your PAM vault.
+\end{itemize}
+
+\section{Review}
+\begin{itemize}
+\item CODEOWNERS on \texttt{terraform/model/roles/<bu>.yaml} (the business unit) and on everything
+  else (the platform team). Require both for role files.
+\item Every merge request carries the plan; reviewers look for replacements, root-scope rules,
+  removed deny rules and new associations without sub-claims.
+\item Access expectations make intent explicit: a reviewer can see the access matrix change.
+\end{itemize}
+
+\section{Secrets and state}
+\begin{itemize}
+\item Secret values never go into the YAML model; they are referenced by \texttt{*\_var} keys and
+  injected as sensitive \texttt{TF\_VAR\_*} maps from masked CI variables.
+\item Provider 2.0.5 has no write-only arguments, so the \emph{state} contains OIDC client
+  secrets, webhook tokens, Splunk tokens, the Conjur API key and computed private keys. Store it
+  encrypted, versioned and readable only by the pipeline identities and a few administrators.
+\item \texttt{watchover export} redacts secrets in \texttt{raw/}, but exported files still describe
+  your security model: keep export directories out of Git (\texttt{/export/} is ignored).
+\end{itemize}
+
+\section{Guards and least privilege}
+The Terraform guards reject the most dangerous model mistakes before any plan reaches Akeyless:
+root-scope rules (\texttt{/*}) beyond list/deny without an explicit \texttt{allow\_root\_scope},
+deny rules mixed with other capabilities, associations without sub-claims to auth methods that
+force them, associations to unmanaged auth methods, invalid management-plane values. Treat an
+\texttt{allow\_*} flag in a merge request as a finding that needs a reason.
+
+\section{Working with Claude}
+\begin{itemize}
+\item Do not paste secrets, tokens or state files into a conversation. The skill never needs them:
+  it works on names, paths, claims and plans.
+\item Treat Claude's output as a proposal: it enters Akeyless only through the same tests,
+  plan and review as any human change. Statements marked \textbf{VERIFY} are not confirmed by a
+  primary source.
+\item Exported \texttt{REPORT.md} and plans can contain internal names and e-mail addresses; share
+  them according to your data-handling rules.
+\end{itemize}
+
+\section{The demo back end}
+\texttt{docs/manual/demo/akeyless} exists only to execute this manual's examples. It is not a
+client of Akeyless, answers from test fixtures, and must never be on the \texttt{PATH} of a real
+pipeline.

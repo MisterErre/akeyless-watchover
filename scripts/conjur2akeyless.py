@@ -209,6 +209,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
+    try:
+        _main(argv)
+    except (yaml.YAMLError, OSError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _main(argv: list[str] | None = None) -> None:
     a = build_parser().parse_args(argv)
     pol = Policy()
     for f in a.policy:
@@ -233,8 +241,4 @@ def main(argv: list[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (yaml.YAMLError, OSError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        sys.exit(2)
+    main()

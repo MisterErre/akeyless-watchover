@@ -1,0 +1,10 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover verify can the checkout pods read refunds prod?
+
+\claude \textbf{No.} \texttt{checkout-prod-workload} only matches \texttt{/payments/checkout/prod/*}; no
+other role is associated with the K8s auth method. Adds the negative check
+\texttt{\{ persona: checkout-prod-pod, path: /payments/refunds/prod/db, expect: [] \}} and shows how
+to prove it offline (\texttt{watchover simulate --explain}) and live (\texttt{watchover verify}, or
+\emph{Impersonate As} in the console).
+\end{session}

@@ -429,3 +429,19 @@ def test_forwarder_fixture_is_regenerated_unchanged(tmp_path):
     out = tmp_path / "governance.yaml"
     subprocess.run(["bash", os.path.join(fixture, "generate.sh"), str(out)], check=True, capture_output=True)
     assert out.read_text() == open(os.path.join(fixture, "governance.yaml")).read()
+
+
+# ---------- manual ----------
+def test_manual_reference_parts_are_current():
+    """docs/manual/generated/{commands,variables}.tex (and docs/*.tex when pandoc exists) match the code."""
+    res = run(os.path.join(REPO, "docs", "manual", "build.py"), "--check")
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_manual_has_an_example_and_session_for_every_command():
+    man = os.path.join(REPO, "docs", "manual")
+    import watchover as wo
+    for t in wo.TOOLS:
+        assert os.path.exists(os.path.join(man, "generated", "examples", t.name + ".tex")), t.name
+    for c in wo.SKILL_COMMANDS:
+        assert os.path.exists(os.path.join(man, "sessions", c.name + ".tex")), c.name

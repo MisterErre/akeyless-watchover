@@ -1,0 +1,15 @@
+% Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
+\begin{session}{Example session}
+\you /akeyless-watchover import the OIDC auth method and everything alice@example.com can reach
+
+\claude The command to run:
+\begin{lstlisting}
+scripts/watchover export --out export/ --profile admin --types roles,auth-methods \
+  --persona-auth-method /governance/auth/sso-entra-oidc \
+  --persona-claim email=alice@example.com --persona-claim groups=grp-akl-payments-admins
+\end{lstlisting}
+Then, given \texttt{export/REPORT.md}: one decision per report item (client secret into
+\texttt{TF\_VAR\_auth\_method\_secrets}, a temporary rule that will not be imported, an
+association to an unmanaged auth method), where to move each file, and ``iterate until the plan
+shows imports only''.
+\end{session}

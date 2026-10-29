@@ -1,0 +1,75 @@
+\chapter{Installation and prerequisites}\label{ch:installation}
+
+\section{Prerequisites}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Component} & \textbf{Version} & \textbf{Needed for} \\ \midrule
+Python & 3.10 or newer, with \texttt{pyyaml} & every kit command \\
+\texttt{pytest} & any recent & \texttt{watchover test} (Python tests) \\
+Terraform \emph{or} OpenTofu & Terraform $\geq$ 1.7, OpenTofu $\geq$ 1.8 (mocked-provider tests) & \texttt{watchover test}, plan and apply \\
+Provider \texttt{akeyless-community/akeyless} & \texttt{\textasciitilde> 2.0} (verified: 2.0.5) & downloaded by \texttt{init} \\
+Akeyless CLI (\texttt{akeyless}) & current & \texttt{verify}, \texttt{export --transport cli}, \texttt{account-settings} \\
+\texttt{curl}, \texttt{jq} & any & \texttt{watchover token} \\
+\texttt{zip} & any & \texttt{watchover build-skill} \\
+Bash & 4 or newer & the shell helpers and test scripts \\
+pandoc, latexmk, XeLaTeX & pandoc $\geq$ 2.11, TeX Live & rebuilding this manual only \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Commands marked \emph{offline} in Chapter~\ref{ch:kit-commands} never contact Akeyless. The others
+need a CLI profile or a token of an identity with enough rights; see each command.
+
+\section{Get the kit}
+\begin{lstlisting}
+git clone https://github.com/MisterErre/akeyless-watchover.git
+cd akeyless-watchover
+python3 -m pip install pyyaml pytest      # add --user or a virtualenv as you prefer
+scripts/watchover version
+scripts/watchover test --tool tofu        # or --tool terraform; everything must pass
+\end{lstlisting}
+
+\section{Install the skill}
+Build the skill package (CI also attaches it to every run as the artefact
+\texttt{akeyless-watchover-skill}):
+\begin{lstlisting}
+scripts/watchover build-skill             # -> dist/akeyless-watchover.zip
+\end{lstlisting}
+The ZIP contains \texttt{SKILL.md}, \texttt{references/} (the Markdown documents of \texttt{docs/})
+and \texttt{template/} (the tested kit).
+
+\paragraph{Claude (web and desktop)} Upload the ZIP under \textbf{Customize > Skills} (older
+interface: \textbf{Settings > Capabilities > Skills > Upload skill}). Code execution must be enabled.
+
+\paragraph{Claude Code} Unzip into your personal or project skills folder:
+\begin{lstlisting}
+unzip dist/akeyless-watchover.zip -d ~/.claude/skills/            # personal
+unzip dist/akeyless-watchover.zip -d <project>/.claude/skills/    # project
+\end{lstlisting}
+
+Claude loads the skill when you talk about Akeyless governance, or explicitly with
+\texttt{/akeyless-watchover <command>}. Check the installation with \texttt{/akeyless-watchover help}.
+
+\section{Create your governance repository}
+The kit is a template: copy it into the repository that will own your Akeyless configuration.
+\begin{enumerate}
+\item Create an (internal or private) repository, e.g.\ \texttt{akeyless-governance}.
+\item Copy \texttt{terraform/}, \texttt{bootstrap/}, \texttt{scripts/} and the CI template for your
+  platform (\texttt{ci/github/akeyless-governance.yml} to \texttt{.github/workflows/}, or
+  \texttt{ci/gitlab/.gitlab-ci.yml} to the root). Copy \texttt{ci/CODEOWNERS.example} to
+  \texttt{CODEOWNERS} and adapt the owners.
+\item Add a remote state backend to \texttt{terraform/versions.tf} (and a separate one for
+  \texttt{bootstrap/}). The state contains secrets: encrypted, versioned, access-restricted
+  (Chapter~\ref{doc-pipeline}).
+\item Replace the example model in \texttt{terraform/model/} with yours (Chapter~\ref{ch:quickstart}
+  shows how), keeping \texttt{access\_expectations.yaml} in step.
+\item Run \texttt{scripts/watchover test} and commit.
+\end{enumerate}
+
+\section{Rebuilding this manual}
+\begin{lstlisting}
+python3 docs/manual/build.py                  # regenerate, execute the examples, compile the PDF
+python3 docs/manual/build.py --check          # are the generated reference parts current?
+\end{lstlisting}
+Section~\ref{sec:manual-maintenance} explains what is generated and from which source.

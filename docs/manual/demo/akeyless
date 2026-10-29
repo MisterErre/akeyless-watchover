@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Demo stand-in for the `akeyless` CLI, used ONLY to execute the manual's examples of live commands.
+
+It is NOT Akeyless. It answers:
+  * the export read operations from scripts/tests/fixtures/export (same data the test-suite uses);
+  * `describe-permissions --profile <persona>` by evaluating the "live" model in $DEMO_LIVE_MODEL with the
+    offline simulator (the manual's demo adds one manual change there to show drift detection);
+  * `update-account-settings ...` with a success message.
+Every call is appended to $FAKE_AKL_LOG when set.
+"""
+import json
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+sys.path.insert(0, os.path.join(REPO, "scripts"))
+sys.path.insert(0, os.path.join(REPO, "scripts", "tests"))
+
+import fake_backend  # noqa: E402
+from akl_model import Model, effective_capabilities, load_yaml  # noqa: E402
+
+TYPE = {"item": "item", "am": "am", "role": "role", "target": "target"}
+
+
+def opt(argv, name, default=None):
+    return argv[argv.index(name) + 1] if name in argv else default
+
+
+def main(argv):
+    log = os.environ.get("FAKE_AKL_LOG")
+    if argv[:1] == ["describe-permissions"]:
+        if log:
+            with open(log, "a") as fh:
+                fh.write(json.dumps(argv) + "\n")
+        live = os.environ["DEMO_LIVE_MODEL"]
+        persona = load_yaml(os.path.join(live, "access_expectations.yaml"))["personas"][opt(argv, "--profile")]
+        caps, _ = effective_capabilities(Model.load(live), persona["auth_method"], persona.get("claims") or {},
+                                         opt(argv, "--path"), TYPE[opt(argv, "--type", "item")])
+        print(json.dumps({"client_permissions": sorted(caps)}))
+        return 0
+    if argv[:1] == ["update-account-settings"]:
+        if log:
+            with open(log, "a") as fh:
+                fh.write(json.dumps(argv) + "\n")
+        print("Account settings were updated successfully")
+        return 0
+    return fake_backend.cli_main(argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

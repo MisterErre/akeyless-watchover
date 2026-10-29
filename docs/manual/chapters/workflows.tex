@@ -1,0 +1,115 @@
+\chapter{Everyday workflows}\label{ch:workflows}
+
+Each recipe gives the goal, the steps, and what to check. All changes follow the same delivery:
+model change $\rightarrow$ \texttt{watchover test} $\rightarrow$ merge request (checks, plan,
+CODEOWNERS approval) $\rightarrow$ merge (apply) $\rightarrow$ optional \texttt{watchover verify}.
+
+\section{Grant access}
+\begin{enumerate}
+\item Ask Claude for the smallest diff:
+  \texttt{/akeyless-watchover change give fraud-analysts read on /payments/+/prod/*}.
+\item Apply the diff to \texttt{terraform/model/roles/<bu>.yaml} and add the new checks to
+  \texttt{access\_expectations.yaml} -- including at least one \emph{negative} check (what must stay denied).
+\item \texttt{scripts/watchover simulate ... --explain} shows which rule grants what.
+\end{enumerate}
+\textbf{Check:} the plan changes one role (rules in place) and maybe adds one association; nothing is replaced.
+
+\section{Revoke access or offboard a team}
+Remove the rule or the association (or narrow the sub-claims) and turn the corresponding
+expectation into \texttt{expect: []}. Offboarding a person needs no change here: human access
+follows IdP group membership through sub-claims, so remove the person from the IdP group.
+\textbf{Check:} the plan removes exactly what you intended; role deletions are blocked when
+\texttt{delete\_protection} is on -- turn it off in one merge request, delete in the next.
+
+\section{Onboard a new application or business unit}
+\begin{enumerate}
+\item \texttt{/akeyless-watchover design <the new BU/app, environments and personas>}.
+\item New business unit: a new \texttt{model/roles/<bu>.yaml} and a CODEOWNERS line for it.
+  New application in an existing BU: usually no role change at all, because rules use
+  \texttt{/<bu>/+/<env>/*}; add folders and expectations.
+\item Add the folders you want to protect (\texttt{delete\_protection}) to \texttt{model/folders.yaml}.
+\end{enumerate}
+
+\section{Onboard a workload identity}
+Add the auth method (AWS IAM, Azure AD, Kubernetes, OAuth2/JWT, Universal Identity, \ldots) to
+\texttt{model/auth\_methods.yaml} with the narrowest binding (account, role, namespace, service
+account), associate it with a workload role, and add a check. Secrets such as a client secret are
+referenced with \texttt{*\_var} keys and supplied through \texttt{TF\_VAR\_auth\_method\_secrets}.
+Kubernetes and LDAP methods also need Gateway-side configuration, which is out of scope.
+\textbf{Check:} hand the \texttt{auth\_method\_access\_ids} output to the consumer team; it is not secret.
+
+\section{Emergency change (break-glass)}
+When production is down and the pipeline cannot wait: make the change with the CLI as an
+administrator (\texttt{/akeyless-watchover cli <task>} gives the exact command), then
+\emph{immediately} raise the merge request that codifies it. If you skip the merge request, the
+nightly drift job fails and the next apply reverts your change (role rules are authoritative).
+
+\section{Temporary and just-in-time access}
+Temporary rules (\texttt{--ttl}) exist only in the CLI and API; the next apply on that role removes
+them. For just-in-time access, model the \emph{possibility} of access in Git and let each grant be
+requested, approved and audited in Akeyless: for Secure Remote Access, \texttt{sra-rule} with
+\texttt{request\_access} for requesters and \texttt{approval\_authority} on a separate approver role
+(the two cannot be combined in one rule; Chapter~\ref{doc-rbac-model}). How access requests work for
+other object types depends on your Akeyless edition -- ask
+\texttt{/akeyless-watchover explain access requests} and check the result against your account.
+
+\section{Rename a role or an auth method}
+Names are ForceNew in the provider: changing the YAML key alone destroys and recreates the object
+(for an auth method this issues a \emph{new access ID} and breaks its consumers). To rename a role
+without replacement:
+\begin{enumerate}
+\item Rename it in Akeyless: \texttt{akeyless update-role --name <old> --new-name <new>}.
+\item Rename the YAML key, remove the old addresses from state
+  (\texttt{terraform state rm 'akeyless\_role.this["<old>"]'} and its associations) and add
+  \texttt{import} blocks for the new ones (roles by name, associations by \texttt{"<role>:<auth method>"}).
+\item The plan must show imports only.
+\end{enumerate}
+Do the same for an auth method only if its access ID must not change; otherwise plan the consumer
+cut-over first.
+
+\section{Bring existing configuration under Terraform}
+\begin{enumerate}
+\item \texttt{scripts/watchover export --out export/ --profile admin} (or \texttt{--transport api}).
+  Use \texttt{--types}, \texttt{--only} or the persona filter to start small.
+\item \texttt{/akeyless-watchover import export/REPORT.md}: Claude resolves every report item.
+\item Move the model files and \texttt{imports.tf} into \texttt{terraform/}; iterate until the plan
+  shows \emph{imports only}; apply. For objects outside the model use \texttt{--hcl --generate}.
+\end{enumerate}
+Details: Chapter~\ref{doc-brownfield-import}.
+
+\section{Migrate from CyberArk Conjur}
+Secrets move with an Akeyless Gateway migration (\texttt{model/gateway.yaml}); RBAC is translated
+by \texttt{scripts/watchover conjur}, which writes roles and a bindings file in which you choose the
+auth method and sub-claims for each Conjur host and user. Chapter~\ref{doc-conjur-migration}.
+
+\section{Set up certificate issuance}
+\texttt{/akeyless-watchover pki <requirements>} designs CA keys and issuers in
+\texttt{model/pki.yaml}, the requester roles and an expiry notification. Chapter~\ref{doc-pki}.
+
+\section{Add or adopt an event forwarder}
+Akeyless cannot list event forwarders, so they cannot be exported. Create new ones with
+\texttt{scripts/watchover forwarder ... --write terraform/model/governance.yaml}. To bring an
+existing one under Terraform, recreate its definition with the same command plus
+\texttt{--import-existing} (import ID = its name), then check the first plan shows an import and no
+unexpected update. Put the printed secret keys into \texttt{TF\_VAR\_event\_forwarder\_secrets}.
+
+\section{Harden the account}
+\texttt{/akeyless-watchover harden} proposes \texttt{account\_settings} (the part the provider
+manages), \texttt{account\_settings\_cli} (bound IPs, client types, locks; applied by
+\texttt{watchover account-settings} in the apply job), mandatory custom fields and key policies.
+Always run \texttt{watchover account-settings --dry-run} first: a wrong \texttt{bound-ips} can lock
+out your own pipeline.
+
+\section{Gateway administration and audit-log forwarding}
+\texttt{model/gateway.yaml} defines who may administer the Gateway (allowed access) and where it
+forwards audit logs (syslog or Splunk). Set \texttt{gateway\_api}; use one state or workspace per
+Gateway cluster.
+
+\section{Handle a drift finding}
+The nightly job failed: someone changed Akeyless outside Git. Read the plan output.
+\begin{itemize}
+\item The change was wrong: run the apply job (or wait for the next merge) -- it reverts it.
+\item The change was needed: codify it in a merge request; the plan becomes empty after merge.
+\end{itemize}
+\texttt{watchover verify} finds the same class of problem from the access side (see the example in
+Section~\ref{kit:verify}).
