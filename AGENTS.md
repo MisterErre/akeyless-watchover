@@ -9,6 +9,10 @@ Follow `skill/akeyless-watchover/SKILL.md`. Inside this repository the kit root 
 root and the references are in `docs/`. Run kit commands with `scripts/watchover <command>`
 (`scripts/watchover help` lists them).
 
+In a user's **governance repository** (e.g. on GitHub Enterprise): never commit, push, merge or open pull
+requests. Read it, and deliver changes as files or a patch (`scripts/watchover reconcile`) for the user to
+review and commit.
+
 ## For changes to the kit itself
 - Run `scripts/watchover test --tool tofu` (or `--tool terraform`) before finishing; everything must pass.
   Python only: `scripts/watchover test --skip-iac`.

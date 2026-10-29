@@ -61,5 +61,7 @@ var-file per cluster (`gateway_api` and `model/gateway.yaml` differ).
 3. `plan` with the plan identity; reviewers read the plan (CODEOWNERS: BU + platform).
 4. Merge -> `apply` (protected environment, manual approval) -> CLI-only account settings.
 5. Optional: `akl_verify.py` with test personas proves effective access live.
-6. Nightly `drift` fails when someone changed Akeyless outside Git; the next apply reverts it
+6. On demand, `watchover reconcile` compares the repository with Akeyless and writes a report and patch for a
+   person to review and commit (agents never commit or push to the governance repository).
+7. Nightly `drift` fails when someone changed Akeyless outside Git; the next apply reverts it
    (role rules are authoritative).

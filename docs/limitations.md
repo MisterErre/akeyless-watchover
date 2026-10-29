@@ -16,6 +16,9 @@
 | K8s/LDAP auth need Gateway-side config | - | out of scope (Gateway) |
 | Conjur RBAC not migrated by Akeyless | - | `conjur2akeyless.py` |
 | One Gateway per provider alias | - | one state/workspace per Gateway cluster |
+| Event forwarders cannot be listed | not exportable, not compared by `reconcile` | `watchover forwarder` scaffolds them; `terraform plan` shows drift |
+| `reconcile` compares 5 families only | PKI issuers, forwarders, Gateway, account settings and targets are not compared | listed in REPORT.md; `terraform plan` is the authoritative drift check |
+| GitHub Enterprise Server OIDC | Akeyless must fetch the JWKS of `https://<ghe-host>/_services/token` | the instance must expose it to Akeyless (network decision, not code) |
 
 ## Not verified against a live account (marked VERIFY)
 
@@ -30,6 +33,10 @@
 * Export: `target_type` strings other than aws, azure, gcp, k8s and hashi_vault (matched by name);
   the CLI command name `list-groups` (REST `/list-group`); the shape of `admins.allowed_access`
   and the log-forwarding type in `gateway-get-config`; `/configure` and `/connect` over REST.
+* Reconcile: which exported fields are provider defaults (shown as "only in Akeyless", not proposed
+  unless `--include-unmodelled`) and which model fields the export cannot read ("only in the repository").
+* GitHub Enterprise Cloud with data residency (`*.ghe.com`): the OIDC issuer differs from
+  github.com; set it explicitly after checking your enterprise's documentation.
 
 Everything else in this repository was checked against docs.akeyless.io, the Akeyless OpenAPI/Go
 SDK and the provider source/schema, and the code is covered by offline tests.
