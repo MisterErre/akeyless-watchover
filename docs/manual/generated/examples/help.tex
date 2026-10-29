@@ -3,7 +3,7 @@
 \begin{terminal}
 \begin{Verbatim}[fontsize=\scriptsize,breaklines,breakanywhere,commandchars=\\\{\}]
 \textcolor{wo-prompt}{\$} \textbf{scripts/watchover help}
-watchover 1.5.1 - akeyless-watchover kit
+watchover 1.6.0 - akeyless-watchover kit
 
 Usage: scripts/watchover <command> [options]
 
@@ -12,10 +12,10 @@ Commands:
   simulate          Offline: evaluate access_expectations.yaml against the model.
   verify            Live: compare expectations with describe-permissions run as each persona's CLI profile.  [needs Akeyless]
   export            Export existing config and translate it: YAML model + import blocks, or plain Terraform (--hcl).  [needs Akeyless]
+  reconcile         Compare the governance repository (e.g. GitHub Enterprise) with live Akeyless; write a report and a patch to review. Read-only: never commits or pushes.  [needs Akeyless]
   forwarder         Scaffold a new event forwarder (model entry or HCL); --import-existing adopts one by name.
   conjur            Translate Conjur policy into model roles + identity bindings.
-  account-settings  Apply account_settings_cli (settings the provider cannot manage) with the CLI.  [needs Akeyless]
-[... 12 lines omitted ...]
+[... 13 lines omitted ...]
 \end{Verbatim}
 \exitcode{0}
 \end{terminal}

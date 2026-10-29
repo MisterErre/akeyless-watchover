@@ -19,6 +19,7 @@ command, its options, how it works, exit codes and examples. Built from the code
 | 10 | [conjur-migration.md](conjur-migration.md) | CyberArk Conjur -> Akeyless (secrets and RBAC) |
 | 11 | [pki.md](pki.md) | Private/public CA governance |
 | 12 | [limitations.md](limitations.md) | What is not possible, what is unverified, and why |
+| 14 | [reconcile.md](reconcile.md) | Compare the repository (e.g. GitHub Enterprise) with Akeyless; changes as files to review - never commits or pushes |
 | 13 | [api-vs-cli.md](api-vs-cli.md) | REST API or CLI: same operations, how to choose, what each adds |
 
 Sources of truth used: docs.akeyless.io, the Akeyless OpenAPI / Go SDK v5.0.x, and the source

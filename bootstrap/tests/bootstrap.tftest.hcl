@@ -19,6 +19,17 @@ run "github" {
   }
 }
 
+run "github_enterprise_server" {
+  command = plan
+  variables {
+    ci = { platform = "github", repository = "platform/akeyless-governance", github_url = "https://ghe.example.com/" }
+  }
+  assert {
+    condition     = akeyless_auth_method_oauth2.ci.issuer == "https://ghe.example.com/_services/token" && akeyless_auth_method_oauth2.ci.jwks_uri == "https://ghe.example.com/_services/token/.well-known/jwks"
+    error_message = "GHES issuer/jwks wrong"
+  }
+}
+
 run "gitlab" {
   command = plan
   variables {

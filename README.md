@@ -13,7 +13,7 @@ it works, its exit codes and examples. The Markdown version is [docs/usage-guide
 
 | Skill commands (to your AI agent) | Kit commands (`scripts/watchover`) |
 |---|---|
-| `help` `design` `change` `review` `pipeline` `import` `conjur` `pki` `harden` `gateway` `verify` `cli` `explain` | `test` `simulate` `verify`* `export`* `forwarder` `conjur` `account-settings`* `token`* `build-skill` `install-skill` `validate-skill` `mcp` `help` `version` |
+| `help` `design` `change` `review` `pipeline` `import` `reconcile` `conjur` `pki` `harden` `gateway` `verify` `cli` `explain` | `test` `simulate` `verify`* `export`* `reconcile`* `forwarder` `conjur` `account-settings`* `token`* `build-skill` `install-skill` `validate-skill` `mcp` `help` `version` |
 
 \* calls Akeyless (live); all other commands are offline.
 
@@ -29,9 +29,11 @@ scripts/watchover mcp --repo DIR                # MCP server: kit tools, docs, s
 scripts/watchover build-skill                   # dist/akeyless-watchover.zip + prompt pack for chat-only assistants
 ```
 
-Governance repository: copy `terraform/`, `bootstrap/`, `scripts/` and a `ci/` template. Run
+Governance repository (GitHub, GitHub Enterprise or GitLab): copy `terraform/`, `bootstrap/`, `scripts/` and a `ci/` template. Run
 `bootstrap/` once as an admin (CI identity), then deliver each change by merge request
 (checks + plan), merge (apply) and the nightly drift check. See [docs/pipeline.md](docs/pipeline.md).
+`watchover reconcile` compares the repository with Akeyless and writes a report and patch for review. It
+never commits or pushes ([docs/reconcile.md](docs/reconcile.md)).
 
 ## Layout
 
@@ -50,5 +52,5 @@ provider v2.0.5. Anything unconfirmed is marked **VERIFY** ([docs/limitations.md
 The offline tests run on Terraform and OpenTofu in CI:
 - 22 Terraform test runs;
 - 15 proofs that each guard fires with the intended message;
-- 3 bootstrap runs;
-- 93 Python tests.
+- 4 bootstrap runs;
+- 100 Python tests.

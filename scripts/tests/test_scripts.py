@@ -586,3 +586,118 @@ def test_every_command_documents_how_it_works_and_exit_codes():
     import watchover as wo
     assert {c.name for c in wo.SKILL_COMMANDS} == set(wo.SKILL_HOW)
     assert {t.name for t in wo.TOOLS} == set(wo.TOOL_HOW) == set(wo.TOOL_EXITS)
+
+
+# ---------- reconcile (read-only repository comparison) ----------
+import akl_reconcile as rec  # noqa: E402
+
+FX_EXPORT = os.path.join(HERE, "fixtures", "export")
+
+
+def test_reconcile_yaml_edit_keeps_the_rest_of_the_file():
+    text = ("# header comment\nroles:\n  /r/a:\n    rules: []   # keep\n\n  # about b\n  /r/b:\n    description: x\n"
+            "\nnaming: {}\n")
+    new = rec.edit_yaml(text, "roles", "/r/b", {"description": "y"})
+    assert new.startswith("# header comment\nroles:\n  /r/a:\n    rules: []   # keep\n\n  # about b\n")
+    assert yaml.safe_load(new)["roles"]["/r/b"] == {"description": "y"} and new.endswith("\nnaming: {}\n")
+    added = rec.edit_yaml(new, "roles", "/r/c", {"rules": []})
+    assert list(yaml.safe_load(added)["roles"]) == ["/r/a", "/r/b", "/r/c"] and "naming: {}" in added
+    removed = rec.edit_yaml(added, "roles", "/r/a", None)
+    assert list(yaml.safe_load(removed)["roles"]) == ["/r/b", "/r/c"] and "# header comment" in removed
+    fresh = rec.edit_yaml("# only a comment\n", "folders", "/x", {"description": "d"})
+    assert yaml.safe_load(fresh) == {"folders": {"/x": {"description": "d"}}}
+
+
+def test_reconcile_normalisation_ignores_noise():
+    model = {"rules": [{"path": "/a/*", "capabilities": ["read", "list"], "type": "item-rule"}],
+             "associations": [{"auth_method": "/am", "case_sensitive": True, "sub_claims": {"groups": "g1,g2"}}],
+             "allow_external_auth_methods": True, "audit_access": "none", "delete_protection": "false",
+             "client_secret_var": "x"}
+    live = {"rules": [{"path": "/a/*", "capabilities": ["list", "read"]}],
+            "associations": [{"auth_method": "/am", "sub_claims": {"groups": ["g2", "g1"]}}]}
+    assert rec.compare("roles", model, live) == {"changed": {}, "only_akeyless": {}, "only_model": {}}
+
+
+def test_git_wrapper_refuses_to_write():
+    for verb in ("push", "commit", "merge", "rebase", "reset", "tag"):
+        with pytest.raises(RuntimeError, match="read-only"):
+            rec.git(verb, "origin")
+    src = open(os.path.join(SCRIPTS, "akl_reconcile.py")).read()
+    assert not re.search(r'git\("(push|commit|merge|rebase|reset|tag)"', src)
+
+
+def _ghe(tmp_path):
+    """A bare repository standing in for GitHub Enterprise, seeded with a model that drifted from the fixtures."""
+    ex = tmp_path / "ex"
+    import akl_export
+    akl_export._main(["--out", str(ex), "--from-dir", FX_EXPORT, "--types", rec.EXPORT_TYPES])
+    seed = tmp_path / "seed"
+    (seed / "terraform/model/roles").mkdir(parents=True)
+    for src, dst in (("auth_methods.imported.yaml", "auth_methods.yaml"), ("folders.imported.yaml", "folders.yaml"),
+                     ("governance.imported.yaml", "governance.yaml")):
+        (seed / "terraform/model" / dst).write_text((ex / "model" / src).read_text())
+    roles = yaml.safe_load((ex / "model/roles/imported.yaml").read_text())
+    roles["roles"]["/governance/roles/payments/team-admin"]["rules"][0]["capabilities"] = ["list", "read"]
+    del roles["roles"]["/governance/roles/platform/god"]
+    roles["roles"]["/governance/roles/payments/old"] = {"rules": [{"path": "/old/*", "capabilities": ["read"]}]}
+    (seed / "terraform/model/roles/payments.yaml").write_text("# payments team\n" + yaml.safe_dump(roles, sort_keys=False))
+    g = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+    for cmd in (["git", "init", "-q", "-b", "main", "."], ["git", "add", "-A"], g + ["commit", "-qm", "seed"]):
+        subprocess.run(cmd, cwd=seed, check=True)
+    bare = tmp_path / "ghe.git"
+    subprocess.run(["git", "clone", "-q", "--bare", str(seed), str(bare)], check=True)
+    return bare
+
+
+def test_reconcile_against_a_remote_repository(tmp_path):
+    bare = _ghe(tmp_path)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=bare, capture_output=True, text=True).stdout
+    out = tmp_path / "rec"
+    with pytest.raises(SystemExit) as e:
+        rec.main(["--repo-url", f"file://{bare}", "--from-dir", FX_EXPORT, "--out", str(out)])
+    assert e.value.code == 1
+    s = json.loads((out / "summary.json").read_text())
+    assert s["counts"] == {"different": 1, "only_akeyless": 1, "only_model": 1}
+    assert s["repository"]["commit"] == head.strip()
+    report = (out / "REPORT.md").read_text()
+    assert "Nothing was committed or pushed" in report and "/governance/roles/payments/old" in report
+    assert (out / "proposed/terraform/model/roles/payments.yaml").read_text().startswith("# payments team\n")
+    assert "akeyless_role.this[\"/governance/roles/platform/god\"]" in (out / "imports.tf").read_text()
+    # the patch applies cleanly to a fresh clone; the remote is untouched
+    wc = tmp_path / "wc"
+    subprocess.run(["git", "clone", "-q", str(bare), str(wc)], check=True)
+    subprocess.run(["git", "apply", str(out / "changes.patch")], cwd=wc, check=True)
+    assert yaml.safe_load((wc / "terraform/model/roles/payments.yaml").read_text())["roles"][
+        "/governance/roles/payments/team-admin"]["rules"][0]["capabilities"] == ["create", "list", "read"]
+    assert subprocess.run(["git", "rev-parse", "HEAD"], cwd=bare, capture_output=True, text=True).stdout == head
+
+
+def test_reconcile_clone_cannot_push_and_local_checkout_is_not_modified(tmp_path):
+    bare = _ghe(tmp_path)
+    clone = tmp_path / "clone"
+    rec.fetch_repo(f"file://{bare}", "main", str(clone))
+    push = subprocess.run(["git", "remote", "get-url", "--push", "origin"], cwd=clone, capture_output=True, text=True)
+    assert push.stdout.strip() == rec.NO_PUSH_URL
+    before = subprocess.run(["git", "status", "--porcelain"], cwd=clone, capture_output=True, text=True).stdout
+    with pytest.raises(SystemExit):
+        rec.main(["--repo-dir", str(clone), "--from-dir", FX_EXPORT, "--out", str(tmp_path / "rec"), "--propose-removals"])
+    after = subprocess.run(["git", "status", "--porcelain"], cwd=clone, capture_output=True, text=True).stdout
+    assert before == after == ""
+    s = json.loads((tmp_path / "rec/summary.json").read_text())
+    assert any(r.get("proposed") == ["remove"] for r in s["results"])
+
+
+def test_reconcile_no_differences_exits_zero(tmp_path):
+    import akl_export
+    ex = tmp_path / "ex"
+    akl_export._main(["--out", str(ex), "--from-dir", FX_EXPORT, "--types", rec.EXPORT_TYPES])
+    repo = tmp_path / "repo/terraform/model"
+    (repo / "roles").mkdir(parents=True)
+    (repo / "roles/all.yaml").write_text((ex / "model/roles/imported.yaml").read_text())
+    for src, dst in (("auth_methods.imported.yaml", "auth_methods.yaml"), ("folders.imported.yaml", "folders.yaml"),
+                     ("governance.imported.yaml", "governance.yaml")):
+        (repo / dst).write_text((ex / "model" / src).read_text())
+    with pytest.raises(SystemExit) as e:
+        rec.main(["--repo-dir", str(tmp_path / "repo"), "--export-dir", str(ex), "--out", str(tmp_path / "rec")])
+    assert e.value.code == 0
+    assert "No differences" in (tmp_path / "rec/REPORT.md").read_text()

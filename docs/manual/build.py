@@ -294,6 +294,28 @@ def _vb(s: str) -> str:
 
 
 AT = "--expectations terraform/model/access_expectations.yaml"
+# a bare repository standing in for GitHub Enterprise: the fixture account's model with drift (as in the tests)
+GHE_SETUP = r'''python3 - >/dev/null <<'EOF'
+import os, subprocess, sys, yaml
+sys.path.insert(0, "scripts")
+import akl_export
+akl_export._main(["--out", "../ghe-ex", "--from-dir", "scripts/tests/fixtures/export", "--types",
+                  "roles,auth-methods,folders,custom-fields,key-policies"])
+m = "../ghe-seed/terraform/model"
+os.makedirs(m + "/roles")
+for s in ("auth_methods", "folders", "governance"):
+    open(f"{m}/{s}.yaml", "w").write(open(f"../ghe-ex/model/{s}.imported.yaml").read())
+r = yaml.safe_load(open("../ghe-ex/model/roles/imported.yaml"))
+r["roles"]["/governance/roles/payments/team-admin"]["rules"][0]["capabilities"] = ["list", "read"]
+del r["roles"]["/governance/roles/platform/god"]
+r["roles"]["/governance/roles/payments/old"] = {"rules": [{"path": "/old/*", "capabilities": ["read"]}]}
+open(m + "/roles/payments.yaml", "w").write("# payments team\n" + yaml.safe_dump(r, sort_keys=False))
+g = ["git", "-c", "user.email=demo@example.com", "-c", "user.name=demo"]
+for c in (["git", "init", "-q", "-b", "main", "."], ["git", "add", "-A"], g + ["commit", "-qm", "seed"]):
+    subprocess.run(c, cwd="../ghe-seed", check=True)
+subprocess.run(["git", "clone", "-q", "--bare", "../ghe-seed", "../ghe.git"], check=True)
+EOF
+'''
 FWD = "scripts/watchover forwarder"
 
 
@@ -316,6 +338,12 @@ def examples(sb: Sandbox) -> dict[str, list]:
        max_lines=12, head=5)
     ex("export", "scripts/watchover export --out export/ --profile admin --types roles,auth-methods "
        "&& head -n 8 export/imports.tf")
+    ex("reconcile", GHE_SETUP + "scripts/watchover reconcile --repo-url file://$PWD/../ghe.git "
+       "--from-dir scripts/tests/fixtures/export --out reconcile/; rc=$?; sed -n '20,31p' reconcile/REPORT.md; exit $rc",
+       "The stand-in GitHub Enterprise repository has one role changed in the console, one role created there and "
+       "one role only in Git:", max_lines=18, head=18,
+       display="scripts/watchover reconcile --repo-url https://ghe.example.com/platform/akeyless-governance.git "
+               "--profile akl-readonly --out reconcile/; sed -n '20,31p' reconcile/REPORT.md")
     ex("forwarder", f"{FWD} --name /governance/events/secops-mail --type email --email-to secops@example.com "
        "--preset critical --items-source '/*'", max_lines=12, head=12)
     ex("conjur", "scripts/watchover conjur scripts/tests/fixtures/conjur.yml --out export/conjur "

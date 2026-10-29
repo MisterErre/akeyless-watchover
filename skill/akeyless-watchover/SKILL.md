@@ -12,7 +12,7 @@ compatibility: >-
   pyyaml, Terraform >= 1.7 or OpenTofu >= 1.8, and the akeyless CLI or network access to the
   Akeyless API for live commands.
 metadata:
-  version: "1.5.1"
+  version: "1.6.0"
   repository: https://github.com/MisterErre/akeyless-watchover
 ---
 
@@ -67,6 +67,7 @@ Map plain requests to the closest command. Without arguments, ask for the one mi
 | `review` | <model files, merge-request diff or plan output> | Findings by severity, failing guards, missing expectations, plan red flags (replacements). |
 | `pipeline` | [github / gitlab] [repository] | bootstrap.tfvars, CI file, variables to create, step-by-step order. |
 | `import` | [what to export: everything / a type / one user's view] [export directory or REPORT.md] | The exact `watchover export` command (model or --hcl mode, filters), then resolution of every REPORT.md item and the import checklist until the plan shows imports only. |
+| `reconcile` | [repository URL or checkout] [branch] | `watchover reconcile` run read-only against the repository (e.g. GitHub Enterprise) and Akeyless; REPORT.md explained difference by difference; changes.patch / proposed files / imports.tf handed over for the user to review and commit. |
 | `conjur` | <Conjur policy YAML> | Translated roles, bindings to fill (auth method + sub-claims), migration resource, cut-over plan. |
 | `pki` | <certificate requirements> | pki.yaml (CA keys, issuers), requester roles, expiry forwarder, CLI to issue/revoke. |
 | `harden` | [current settings or concerns] | governance.yaml: account_settings (Terraform), account_settings_cli (CLI), custom fields, key policies, event forwarders (scaffolded with `watchover forwarder`). |
@@ -90,11 +91,14 @@ review or live verification) and with the VERIFY caveats that touch the answer.
 2. Every design answer delivers: (a) path tree, (b) access matrix, (c) YAML model diff,
    (d) `access_expectations.yaml` checks + plan expectations, (e) CLI equivalent for
    break-glass/bootstrap.
-3. Secrets never go into YAML or Git: model keys ending in `_var` name entries of sensitive
+3. **Never commit, push, merge or open pull requests** in the user's governance repository (wherever it is
+   hosted, e.g. GitHub Enterprise). Read it (clone, fetch, read files) and deliver changes as files or a
+   patch with the commands to apply and verify them; the user reviews and commits.
+4. Secrets never go into YAML or Git: model keys ending in `_var` name entries of sensitive
    variables (`auth_method_secrets`, `event_forwarder_secrets`, `gateway_secrets`).
-4. Ask before guessing: identity source per persona, environment segregation, who may change
+5. Ask before guessing: identity source per persona, environment segregation, who may change
    RBAC, break-glass owner.
-5. Before handing over code: `terraform fmt -check && terraform validate && terraform test`,
+6. Before handing over code: `terraform fmt -check && terraform validate && terraform test`,
    `tests/guard_messages.sh`, `scripts/akl_simulate.py` (all offline).
 
 ## 1. Akeyless authorization in brief (details: references/rbac-model.md)
@@ -163,6 +167,7 @@ Workflows:
 | "Design RBAC for this diagram" | §2 -> edit `model/roles/*.yaml`, `auth_methods.yaml`, `access_expectations.yaml` -> run offline tests -> show the five artifacts |
 | "Add/change access for team X" | change only that BU's role file + expectations; mention CODEOWNERS approval |
 | "Set up the repo/pipeline" | `bootstrap/` once (admin), copy `ci/` template, set variables (references/pipeline.md) |
+| "Compare the repository with Akeyless / what changed outside Git" | `watchover reconcile --repo-url <ghe url> --profile <read-only>` (or `--repo-dir`) -> explain REPORT.md, let the user choose per difference, hand over changes.patch + proposed/ + imports.tf; verify with `terraform plan`; never commit or push |
 | "Import / export what we already have" | `watchover export`: model mode (YAML + import blocks for terraform/) or `--hcl` (Terraform writes plain HCL via `plan -generate-config-out`); filters `--types`, `--only`, `--persona-auth-method/--persona-claim` (one user's view) -> REPORT.md -> plan shows imports only (references/brownfield-import.md) |
 | "Migrate from Conjur" | Gateway migration for values + `scripts/conjur2akeyless.py` for RBAC (references/conjur-migration.md) |
 | "Certificates" | `pki.yaml` ca_keys/issuers + requester roles + expiry forwarder (references/pki.md) |

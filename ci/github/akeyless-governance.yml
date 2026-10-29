@@ -4,6 +4,11 @@
 # Repository secrets:    TF_VAR_AUTH_METHOD_SECRETS (JSON map), TF_VAR_EVENT_FORWARDER_SECRETS (JSON map),
 #                        TF_VAR_GATEWAY_SECRETS (JSON map) + whatever your state backend needs
 # Environment "akeyless-production" with required reviewers protects the apply job.
+# GitHub Enterprise Server: set the repository variable RUNNER_LABEL to your self-hosted runner label;
+#   make actions/checkout, hashicorp/setup-terraform, actions/setup-python and actions/upload-artifact
+#   available (GitHub Connect or synced copies; use the upload-artifact version your instance supports);
+#   bootstrap with ci.github_url = "https://<ghe-host>" (OIDC issuer https://<ghe-host>/_services/token,
+#   whose JWKS endpoint must be reachable from Akeyless).
 name: akeyless-governance
 
 on:
@@ -35,7 +40,7 @@ env:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -60,7 +65,7 @@ jobs:
   plan:
     if: github.event_name == 'pull_request'
     needs: checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -85,7 +90,7 @@ jobs:
   apply:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     environment: akeyless-production
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +125,7 @@ jobs:
 
   drift:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

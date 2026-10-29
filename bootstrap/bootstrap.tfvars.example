@@ -1,6 +1,7 @@
 ci = {
   platform   = "github"                     # or "gitlab"
   repository = "my-org/akeyless-governance" # gitlab: "group/akeyless-governance"
+  # github_url = "https://ghe.example.com"     # GitHub Enterprise Server (default https://github.com)
   # gitlab_url = "https://gitlab.example.com"
   # apply_ref  = "refs/heads/main"           # gitlab: "main"
 }

@@ -43,6 +43,15 @@ Variables: `AKEYLESS_PIPELINE_ACCESS_ID`, optional `AKEYLESS_API`, `AKEYLESS_GAT
 JSON maps `TF_VAR_auth_method_secrets`, `TF_VAR_event_forwarder_secrets`, `TF_VAR_gateway_secrets`
 (secrets/masked). Add your backend configuration.
 
+## GitHub Enterprise Server
+
+- Bootstrap with `ci.github_url = "https://<ghe-host>"`. The OIDC issuer becomes
+  `https://<ghe-host>/_services/token`, and Akeyless must be able to reach its `/.well-known/jwks`.
+- Self-hosted runners: set the repository variable `RUNNER_LABEL` (the template defaults to `ubuntu-latest`).
+- Make the actions the template uses available on your instance (GitHub Connect or synced copies), with
+  the `upload-artifact` version your instance supports.
+- Compare the repository with Akeyless, read-only: `watchover reconcile` ([reconcile.md](reconcile.md)).
+
 ## 3. State
 
 Remote, encrypted, versioned, access-restricted. It contains API-key access keys, OIDC client

@@ -137,6 +137,53 @@ scripts/watchover export --out export2/ --from-dir export/raw     # offline repl
 \paragraph{Sample run}\leavevmode
 \input{generated/examples/export.tex}
 
+\section{\texttt{reconcile}}\label{kit:reconcile}
+\begin{woentry}
+\refrow{Synopsis}{\texttt{scripts/\allowbreak{}watchover reconcile [options]}\hfill\emph{live}}
+\refrow{Does}{Compare the governance repository (e.g. GitHub Enterprise) with live Akeyless; write a report and a patch to review. Read-only: never commits or pushes.}
+\refrow{How}{\begin{itemize}[nosep,leftmargin=1.2em]
+\item Gets the repository read-only: shallow clone of \mbox{-}\mbox{-}ref with the push URL disabled, or reads \mbox{-}\mbox{-}repo-dir as it is. Never writes to it, never commits or pushes.
+\item Exports roles, auth methods, folders, custom fields and key policies from Akeyless (as \texttt{export}; or uses \mbox{-}\mbox{-}export-dir / \mbox{-}\mbox{-}from-dir).
+\item Compares object by object after normalisation (defaults, ordering, *\_var secret keys and guard switches ignored): changed, only in Akeyless, only in the repository.
+\item Writes REPORT.md, changes.patch (\texttt{git apply}), proposed/ (complete changed files at their repository paths, edited in place so comments survive), imports.tf for objects added from Akeyless, summary.json and the export used.
+\end{itemize}
+}
+\refrow{Exit codes}{0 no differences; 1 differences found (files written); 2 git, export or model error}
+\refrow{Environment}{\texttt{AKEYLESS\_\allowbreak{}TOKEN}: api transport: token when \mbox{-}\mbox{-}token is not given\newline \texttt{AKEYLESS\_\allowbreak{}API}: api transport: API URL}
+\end{woentry}
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.27\linewidth}>{\raggedright\arraybackslash}p{0.17\linewidth}>{\raggedright\arraybackslash}p{0.13\linewidth}>{\raggedright\arraybackslash}p{0.35\linewidth}@{}}
+\toprule
+\textbf{Option} & \textbf{Value} & \textbf{Required / default} & \textbf{Description} \\ \midrule\endhead
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}repo-\allowbreak{}url} & \texttt{REPO\_\allowbreak{}URL} & optional & governance repository to clone read-only (GitHub Enterprise HTTPS or SSH URL; uses your git credentials, e.g. \texttt{gh auth login \mbox{-\allowbreak{}}\mbox{-\allowbreak{}}hostname \textless{}ghe-\allowbreak{}host\textgreater{}}) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}repo-\allowbreak{}dir} & \texttt{REPO\_\allowbreak{}DIR} & optional & existing local checkout to compare (read only, never modified) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}ref} & \texttt{REF} & default main & branch to compare with \mbox{-}\mbox{-}repo-url \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}model-\allowbreak{}path} & \texttt{MODEL\_\allowbreak{}PATH} & default terraform/model & model directory inside the repository \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}out} & \texttt{OUT} & default reconcile & output directory (replaced; keep it out of Git) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}export-\allowbreak{}dir} & \texttt{EXPORT\_\allowbreak{}DIR} & optional & use an earlier \texttt{watchover export} output instead of exporting now \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}from-\allowbreak{}dir} & \texttt{FROM\_\allowbreak{}DIR} & optional & export offline from a raw/ directory (as \texttt{export \mbox{-\allowbreak{}}\mbox{-\allowbreak{}}from-\allowbreak{}dir}) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}transport} & \texttt{cli\textbar{}\allowbreak{}api} & default cli & how to read Akeyless (as \texttt{export}) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}profile} & \texttt{PROFILE} & optional & cli transport: akeyless CLI profile (a read-only identity is enough) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}akeyless} & \texttt{AKEYLESS} & default akeyless & cli transport: path to the akeyless CLI binary \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}api} & \texttt{API} & optional & api transport: API URL (default \$AKEYLESS\_API or https://api.akeyless.io) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}token} & \texttt{TOKEN} & optional & api transport: Akeyless token (default \$AKEYLESS\_TOKEN) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}only} & \texttt{ONLY} & optional & compare only objects whose name matches this regex \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}exclude} & \texttt{EXCLUDE} & \emph{repeatable} & regex of names to skip (repeatable) \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}include-\allowbreak{}unmodelled} & -- & optional & also propose fields set in Akeyless but absent from the model \\
+\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}propose-\allowbreak{}removals} & -- & optional & propose removing objects that are in the repository but not in Akeyless \\
+\bottomrule
+\end{longtable}}
+
+\paragraph{Examples}\leavevmode
+\begin{Verbatim}[fontsize=\footnotesize,breaklines,breakanywhere]
+scripts/watchover reconcile --repo-url https://ghe.example.com/platform/akeyless-governance.git --profile akl-readonly
+scripts/watchover reconcile --repo-dir ~/src/akeyless-governance --ref main --transport api
+scripts/watchover reconcile --repo-dir . --export-dir export/ --out /tmp/reconcile
+scripts/watchover reconcile --repo-url git@ghe.example.com:platform/akeyless-governance.git --profile ro --only '^/governance/roles/payments/' --propose-removals
+\end{Verbatim}
+\paragraph{Sample run}\leavevmode
+\input{generated/examples/reconcile.tex}
+
 \section{\texttt{forwarder}}\label{kit:forwarder}
 \begin{woentry}
 \refrow{Synopsis}{\texttt{scripts/\allowbreak{}watchover forwarder [options]}\hfill\emph{offline}}

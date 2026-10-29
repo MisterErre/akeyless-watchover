@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.5.1"
+VERSION = "1.6.0"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to your AI agent). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -69,6 +69,12 @@ SKILL_COMMANDS: list[SkillCommand] = [
                  "The exact `watchover export` command (model or --hcl mode, filters), then resolution of every "
                  "REPORT.md item and the import checklist until the plan shows imports only.",
                  "/akeyless-watchover import the OIDC auth method and everything alice@example.com can reach"),
+    SkillCommand("reconcile", "[repository URL or checkout] [branch]",
+                 "Compare the governance repository (GitHub Enterprise) with live Akeyless and prepare the changes "
+                 "for manual review. Never commits or pushes.",
+                 "REPORT.md with every difference and its two resolutions, changes.patch, proposed files, "
+                 "imports.tf - to review and commit yourself.",
+                 "akeyless-watchover reconcile https://ghe.example.com/platform/akeyless-governance main"),
     SkillCommand("conjur", "<Conjur policy YAML>",
                  "Migrate from CyberArk Conjur: secrets via the Gateway, RBAC via translation.",
                  "Translated roles, bindings to fill (auth method + sub-claims), migration resource, cut-over plan.",
@@ -203,6 +209,7 @@ _ver = _module_tool("akl_verify")
 _exp = _module_tool("akl_export")
 _fw = _module_tool("akl_forwarder")
 _mcp = _module_tool("watchover_mcp")
+_rec = _module_tool("akl_reconcile")
 _cj = _module_tool("conjur2akeyless")
 _acc = _module_tool("akl_account_settings")
 
@@ -224,6 +231,15 @@ TOOLS: list[Tool] = [
           "AKEYLESS_TOKEN=$(scripts/watchover token) scripts/watchover export --out export/ --transport api "
           "--hcl --types targets,groups,gateway --gateway-api https://gw.example.com:8000/api/v2",
           "scripts/watchover export --out export2/ --from-dir export/raw     # offline replay"]),
+    Tool("reconcile", "Compare the governance repository (e.g. GitHub Enterprise) with live Akeyless; write a "
+         "report and a patch to review. Read-only: never commits or pushes.", _rec[0], _rec[1], True,
+         ["scripts/watchover reconcile --repo-url https://ghe.example.com/platform/akeyless-governance.git --profile akl-readonly",
+          "scripts/watchover reconcile --repo-dir ~/src/akeyless-governance --ref main --transport api",
+          "scripts/watchover reconcile --repo-dir . --export-dir export/ --out /tmp/reconcile",
+          "scripts/watchover reconcile --repo-url git@ghe.example.com:platform/akeyless-governance.git --profile ro "
+          "--only '^/governance/roles/payments/' --propose-removals"],
+         [("AKEYLESS_TOKEN", "api transport: token when --token is not given"),
+          ("AKEYLESS_API", "api transport: API URL")]),
     Tool("forwarder", "Scaffold a new event forwarder (model entry or HCL); --import-existing adopts one by name.",
          _fw[0], _fw[1], False,
          ["scripts/watchover forwarder --name /governance/events/secops-mail --type email --email-to secops@example.com "
@@ -288,6 +304,12 @@ SKILL_HOW: dict[str, list[str]] = {
     "import": ["Chooses the export mode (model or --hcl) and filters, and gives the `watchover export` command.",
                "Reads REPORT.md and resolves every item (secrets, unsupported types, external references).",
                "Iterates until the plan shows imports only."],
+    "reconcile": ["Clones the repository read-only (or reads a checkout) and runs `watchover reconcile` with a "
+                  "read-only Akeyless identity; without a shell, gives the command to run.",
+                  "Explains each difference and asks whether Akeyless or the repository is right; adjusts the "
+                  "proposal (--only, --include-unmodelled, --propose-removals).",
+                  "Hands over the patch and files with the commands to apply and verify them (git apply, "
+                  "terraform plan). Never commits, pushes or opens a pull request."],
     "conjur": ["Runs or gives `watchover conjur`; proposes an auth method and sub-claims for each Conjur host and "
                "user in bindings.yaml; adds the Gateway migration entry and a cut-over plan."],
     "pki": ["Writes pki.yaml (CA key, issuers: signer key or public CA target, domains, TTL, auto-renew), the "
@@ -323,6 +345,15 @@ TOOL_HOW: dict[str, list[str]] = {
                "Writes raw/ (JSON, secrets redacted) and REPORT.md (items needing a decision).",
                "Model mode: model/*.imported.yaml + imports.tf for the kit. --hcl: hcl/imports.tf with one import "
                "block per object; --generate runs `plan -generate-config-out` so Terraform writes the resources."],
+    "reconcile": ["Gets the repository read-only: shallow clone of --ref with the push URL disabled, or reads "
+                  "--repo-dir as it is. Never writes to it, never commits or pushes.",
+                  "Exports roles, auth methods, folders, custom fields and key policies from Akeyless (as `export`; "
+                  "or uses --export-dir / --from-dir).",
+                  "Compares object by object after normalisation (defaults, ordering, *_var secret keys and guard "
+                  "switches ignored): changed, only in Akeyless, only in the repository.",
+                  "Writes REPORT.md, changes.patch (`git apply`), proposed/ (complete changed files at their "
+                  "repository paths, edited in place so comments survive), imports.tf for objects added from "
+                  "Akeyless, summary.json and the export used."],
     "forwarder": ["Validates name, type, event types, sources and runner with the same rules as the Terraform guards.",
                   "Builds the model entry; secrets become `*_var` keys of TF_VAR_event_forwarder_secrets.",
                   "Prints YAML (default) or HCL; --write inserts the entry into governance.yaml without touching the "
@@ -357,6 +388,7 @@ TOOL_EXITS: dict[str, str] = {
     "verify": "0 all met; 1 mismatch; 2 CLI call failed",
     "export": "0 written; 2 read/HTTP error or invalid options",
     "forwarder": "0 written; 2 invalid input or duplicate (nothing written)",
+    "reconcile": "0 no differences; 1 differences found (files written); 2 git, export or model error",
     "conjur": "0 written; 2 unreadable or invalid policy",
     "account-settings": "0 applied/printed; 2 invalid settings; else the CLI's exit code",
     "token": "0 token printed; 1 missing settings or authentication failed",

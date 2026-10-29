@@ -31,6 +31,7 @@ variable "ci" {
     platform     = string                                 # "github" | "gitlab"
     repository   = string                                 # github: org/repo ; gitlab: group/project
     gitlab_url   = optional(string, "https://gitlab.com") # gitlab only
+    github_url   = optional(string, "https://github.com") # github only; GitHub Enterprise Server: https://<ghe-host>
     audience     = optional(string, "akeyless")
     apply_ref    = optional(string, "refs/heads/main") # github: ref claim ; gitlab: branch name, e.g. "main"
     auth_name    = optional(string, "/governance/auth/ci-terraform")
@@ -56,9 +57,12 @@ variable "managed_scopes" {
 
 locals {
   is_github = var.ci.platform == "github"
-  jwks_uri  = local.is_github ? "https://token.actions.githubusercontent.com/.well-known/jwks" : "${trimsuffix(var.ci.gitlab_url, "/")}/oauth/discovery/keys"
-  issuer    = local.is_github ? "https://token.actions.githubusercontent.com" : trimsuffix(var.ci.gitlab_url, "/")
-  repo_key  = local.is_github ? "repository" : "project_path"
+  # GitHub.com / GHE Cloud: token.actions.githubusercontent.com. GitHub Enterprise Server: https://<host>/_services/token
+  # (its JWKS endpoint must be reachable from Akeyless).
+  github_issuer = trimsuffix(var.ci.github_url, "/") == "https://github.com" ? "https://token.actions.githubusercontent.com" : "${trimsuffix(var.ci.github_url, "/")}/_services/token"
+  jwks_uri      = local.is_github ? "${local.github_issuer}/.well-known/jwks" : "${trimsuffix(var.ci.gitlab_url, "/")}/oauth/discovery/keys"
+  issuer        = local.is_github ? local.github_issuer : trimsuffix(var.ci.gitlab_url, "/")
+  repo_key      = local.is_github ? "repository" : "project_path"
   # apply: only the protected default branch of the governance repo
   apply_claims = local.is_github ? {
     repository = var.ci.repository

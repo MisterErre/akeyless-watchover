@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.6.0 - 2026-10-29
+
+Added
+- `watchover reconcile` (`scripts/akl_reconcile.py`) compares the governance repository (GitHub Enterprise or any git remote, or a local checkout) with live Akeyless. It is read-only towards the repository and writes the changes as files for a person to review and commit:
+  - REPORT.md: every difference and its two resolutions;
+  - changes.patch, for `git apply`;
+  - proposed/: the complete changed files, edited in place so comments survive;
+  - imports.tf: import blocks for objects added from Akeyless;
+  - summary.json.
+- What it compares and how:
+  - families: roles, auth methods, folders, custom fields and key policies;
+  - noise ignored: defaults, ordering, `*_var` secret keys and guard switches;
+  - `--only` / `--exclude` limit the objects;
+  - `--include-unmodelled` and `--propose-removals` widen the proposal.
+- Safety: the clone is shallow with its push URL disabled, the git wrapper refuses write verbs, and tests prove that neither the remote nor the checkout changes.
+- Skill command `reconcile`. New ground rule: never commit, push, merge or open pull requests in the user's governance repository; deliver files or patches instead.
+- GitHub Enterprise Server support:
+  - `bootstrap` `ci.github_url` (OIDC issuer `https://<host>/_services/token`), with a test;
+  - the CI template's `runs-on` is configurable via the `RUNNER_LABEL` variable (self-hosted runners);
+  - GHES notes in the template and in docs/pipeline.md.
+- docs/reconcile.md; reference PDF entries and a sample run against a stand-in GitHub Enterprise repository. MCP tool `watchover_reconcile` (live).
+
 ## 1.5.1 - 2026-10-29
 
 Changed

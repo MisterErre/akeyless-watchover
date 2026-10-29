@@ -84,6 +84,20 @@ Typed to an AI agent that has the skill (Chapter~\ref{ch:setup}). Syntax: \textt
 \end{woentry}
 \IfFileExists{sessions/import.tex}{\input{sessions/import.tex}}{}
 
+\section{\texttt{reconcile}}\label{skill:reconcile}
+\begin{woentry}
+\refrow{Syntax}{\texttt{akeyless-\allowbreak{}watchover reconcile [repository URL or checkout] [branch]}}
+\refrow{Does}{Compare the governance repository (GitHub Enterprise) with live Akeyless and prepare the changes for manual review. Never commits or pushes.}
+\refrow{Delivers}{REPORT.md with every difference and its two resolutions, changes.patch, proposed files, imports.tf - to review and commit yourself.}
+\refrow{How}{\begin{itemize}[nosep,leftmargin=1.2em]
+\item Clones the repository read-only (or reads a checkout) and runs \texttt{watchover reconcile} with a read-only Akeyless identity; without a shell, gives the command to run.
+\item Explains each difference and asks whether Akeyless or the repository is right; adjusts the proposal (\mbox{-}\mbox{-}only, \mbox{-}\mbox{-}include-unmodelled, \mbox{-}\mbox{-}propose-removals).
+\item Hands over the patch and files with the commands to apply and verify them (git apply, terraform plan). Never commits, pushes or opens a pull request.
+\end{itemize}
+}
+\end{woentry}
+\IfFileExists{sessions/reconcile.tex}{\input{sessions/reconcile.tex}}{}
+
 \section{\texttt{conjur}}\label{skill:conjur}
 \begin{woentry}
 \refrow{Syntax}{\texttt{akeyless-\allowbreak{}watchover conjur \textless{}Conjur policy YAML\textgreater{}}}

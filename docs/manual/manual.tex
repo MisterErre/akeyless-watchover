@@ -125,6 +125,7 @@ options may be given several times. \emph{Live} commands call Akeyless; all othe
 \hyperref[skill:review]{\texttt{review}} & review diff or plan & \pageref{skill:review} \\
 \hyperref[skill:pipeline]{\texttt{pipeline}} & repository + CI set-up & \pageref{skill:pipeline} \\
 \hyperref[skill:import]{\texttt{import}} & existing config $\rightarrow$ Terraform & \pageref{skill:import} \\
+\hyperref[skill:reconcile]{\texttt{reconcile}} & repository vs Akeyless & \pageref{skill:reconcile} \\
 \hyperref[skill:conjur]{\texttt{conjur}} & Conjur migration & \pageref{skill:conjur} \\
 \hyperref[skill:pki]{\texttt{pki}} & CA issuers, requesters & \pageref{skill:pki} \\
 \hyperref[skill:harden]{\texttt{harden}} & account hardening & \pageref{skill:harden} \\
@@ -143,6 +144,7 @@ options may be given several times. \emph{Live} commands call Akeyless; all othe
 \hyperref[kit:simulate]{\texttt{simulate}} & expectations vs model & & \pageref{kit:simulate} \\
 \hyperref[kit:verify]{\texttt{verify}} & expectations vs account & live & \pageref{kit:verify} \\
 \hyperref[kit:export]{\texttt{export}} & account $\rightarrow$ model / HCL & live & \pageref{kit:export} \\
+\hyperref[kit:reconcile]{\texttt{reconcile}} & repository vs Akeyless & live & \pageref{kit:reconcile} \\
 \hyperref[kit:forwarder]{\texttt{forwarder}} & event forwarder scaffold & & \pageref{kit:forwarder} \\
 \hyperref[kit:conjur]{\texttt{conjur}} & Conjur policy $\rightarrow$ roles & & \pageref{kit:conjur} \\
 \hyperref[kit:account-settings]{\texttt{account-settings}} & CLI-only settings & live & \pageref{kit:account-settings} \\
@@ -162,7 +164,11 @@ options may be given several times. \emph{Live} commands call Akeyless; all othe
 Requirements: Python 3.10+ with \texttt{pyyaml} (and \texttt{pytest} for \texttt{test}); Terraform
 $\geq$ 1.7 or OpenTofu $\geq$ 1.8; for live commands the \texttt{akeyless} CLI or \texttt{curl}+\texttt{jq}
 (\texttt{token}). Copy \texttt{terraform/}, \texttt{bootstrap/}, \texttt{scripts/} and the CI template
-from \texttt{ci/} into your governance repository; check with \texttt{scripts/watchover test}.
+from \texttt{ci/} into your governance repository (GitHub, GitHub Enterprise or GitLab); check with
+\texttt{scripts/watchover test}. GitHub Enterprise Server: bootstrap with \texttt{ci.github\_url}
+(OIDC issuer \texttt{https://<host>/\_services/token}, JWKS reachable from Akeyless) and set
+\texttt{RUNNER\_LABEL} for self-hosted runners. Agents never commit or push to this repository: they deliver
+files and patches (\texttt{reconcile}, \ref{kit:reconcile}).
 
 \section{Skill, for any AI agent}
 \begin{center}\small

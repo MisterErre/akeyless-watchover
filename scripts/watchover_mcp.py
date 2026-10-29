@@ -40,6 +40,7 @@ ANNOTATIONS = {
     "verify": {"readOnlyHint": True, "openWorldHint": True},
     "token": {"readOnlyHint": True, "openWorldHint": True},
     "export": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": True},
+    "reconcile": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": True},
     "account-settings": {"readOnlyHint": False, "destructiveHint": True, "openWorldHint": True},
     "forwarder": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
     "conjur": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},

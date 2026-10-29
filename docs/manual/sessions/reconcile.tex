@@ -1,0 +1,11 @@
+% Illustrative example (hand-written); answers vary with the agent and model.
+\begin{session}{Example}
+\you akeyless-watchover reconcile https://ghe.example.com/platform/akeyless-governance main
+
+\agent Ran \texttt{watchover reconcile} with the read-only profile: 2 objects changed outside Git, 1 only in
+Akeyless, 1 only in the repository. (1) \texttt{payments/team-admin} gained \texttt{create} on
+\texttt{/payments/+/nonprod/*} in the console -- intended? Keep the hunk to codify it, drop it to let the next
+apply revert it. (2) \ldots{} The patch, the complete files and \texttt{imports.tf} are in \texttt{reconcile/};
+apply on a branch with \texttt{git apply --3way reconcile/changes.patch}, run \texttt{terraform plan} (imports
+and kept changes only), then commit through a pull request. I have not committed or pushed anything.
+\end{session}
