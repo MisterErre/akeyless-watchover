@@ -3,7 +3,7 @@
 
   scripts/watchover help                 overview of every command
   scripts/watchover help <command>       parameters and examples of one command
-  scripts/watchover help skill           commands you can give the Claude skill
+  scripts/watchover help skill           commands you can give the skill (any AI agent)
   scripts/watchover help --markdown      the full usage guide (docs/usage-guide.md)
 
 This file is the single source of truth for the usage guide: docs/usage-guide.md is
@@ -24,10 +24,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # --------------------------------------------------------------------------------------
-# Skill commands (what you type to Claude). Mirrored in skill/akeyless-watchover/SKILL.md.
+# Skill commands (what you type to your AI agent). Mirrored in skill/akeyless-watchover/SKILL.md.
 # --------------------------------------------------------------------------------------
 
 
@@ -150,15 +150,18 @@ def _token_run(argv):
     return _shell("akl_ci_token.sh", [], env)
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    return argparse.ArgumentParser(prog="watchover build-skill",
-                                   description="Build dist/akeyless-watchover.zip (SKILL.md + references/ + template/) "
-                                               "for upload to Claude or unzip into ~/.claude/skills/.")
+def _skill_tool(parser: str, runner: str) -> tuple[Callable, Callable]:
+    def p():
+        return getattr(__import__("akl_skill"), parser)()
+
+    def r(argv):
+        return getattr(__import__("akl_skill"), runner)(argv)
+    return p, r
 
 
-def _build_run(argv):
-    _build_parser().parse_args(argv)
-    return _shell("build_skill.sh", [])
+_bld = _skill_tool("build_parser_build", "main_build")
+_ins = _skill_tool("build_parser_install", "main_install")
+_val = _skill_tool("build_parser_validate", "main_validate")
 
 
 def _test_parser() -> argparse.ArgumentParser:
@@ -199,6 +202,7 @@ _sim = _module_tool("akl_simulate")
 _ver = _module_tool("akl_verify")
 _exp = _module_tool("akl_export")
 _fw = _module_tool("akl_forwarder")
+_mcp = _module_tool("watchover_mcp")
 _cj = _module_tool("conjur2akeyless")
 _acc = _module_tool("akl_account_settings")
 
@@ -240,8 +244,23 @@ TOOLS: list[Tool] = [
     Tool("token", "CI: exchange the pipeline JWT for an Akeyless token.", _token_parser, _token_run, True,
          ["CI_JWT=$JWT AKEYLESS_ACCESS_ID=p-xxxx scripts/watchover token"],
          [("AKEYLESS_API", "API base URL"), ("AKEYLESS_ACCESS_ID", "CI auth method access ID"), ("CI_JWT", "CI-issued JWT")]),
-    Tool("build-skill", "Package the skill ZIP.", _build_parser, _build_run, False,
-         ["scripts/watchover build-skill"]),
+    Tool("build-skill", "Build the agent-neutral skill package (Agent Skills ZIP) and the prompt pack.",
+         _bld[0], _bld[1], False,
+         ["scripts/watchover build-skill", "scripts/watchover build-skill --out /tmp/wo-dist"]),
+    Tool("install-skill", "Install the skill where an AI agent looks for skills (per-agent folders or any folder).",
+         _ins[0], _ins[1], False,
+         ["scripts/watchover install-skill --agent codex --project ../akeyless-governance",
+          "scripts/watchover install-skill --agent claude --scope user",
+          "scripts/watchover install-skill --agent copilot --project . --dry-run",
+          "scripts/watchover install-skill --agent custom --dest ~/my-agent/skills --force"]),
+    Tool("validate-skill", "Check a skill folder against the Agent Skills specification.",
+         _val[0], _val[1], False,
+         ["scripts/watchover validate-skill", "scripts/watchover validate-skill dist/akeyless-watchover"]),
+    Tool("mcp", "Serve the kit, the docs and the skill commands to any MCP client (stdio).",
+         _mcp[0], _mcp[1], False,
+         ["scripts/watchover mcp", "WATCHOVER_MCP_LIVE=1 scripts/watchover mcp --repo ~/src/akeyless-governance"],
+         [("WATCHOVER_MCP_LIVE", "1 = also expose the commands that call Akeyless (verify, export, account-settings, token)"),
+          ("WATCHOVER_REPO", "kit root the tools run in (default: this repository)")]),
 ]
 TOOL_BY_NAME = {t.name: t for t in TOOLS}
 
@@ -289,7 +308,7 @@ def render_overview() -> str:
         out.append(f"  {t.name:<{w}}{t.summary}{'  [needs Akeyless]' if t.needs_akeyless else ''}")
     out += [f"  {'help':<{w}}This help. 'help <command>', 'help skill', 'help --markdown'.",
             f"  {'version':<{w}}Print the version.", "",
-            "Skill commands (type them to Claude, e.g. '/akeyless-watchover help'):",
+            "Skill commands (type them to your AI agent, e.g. 'akeyless-watchover help'):",
             "  " + ", ".join(c.name for c in SKILL_COMMANDS), "",
             "Full guide: docs/usage-guide.md"]
     return "\n".join(out)
@@ -311,9 +330,10 @@ def render_tool(t: Tool) -> str:
 
 
 def render_skill() -> str:
-    out = ["Skill commands - type them to Claude.",
-           "Claude Code: '/akeyless-watchover <command> [args]'.  Claude (web/desktop): 'akeyless-watchover <command> [args]'",
-           "or simply describe the task; the skill also triggers without a command.", ""]
+    out = ["Skill commands - type them to your AI agent (any agent that has the skill, the MCP prompts or the prompt pack).",
+           "Write 'akeyless-watchover <command> [args]' or your agent's skill syntax ('/akeyless-watchover ...',",
+           "'$akeyless-watchover ...'), or simply describe the task; the skill also triggers without a command.",
+           "Per-agent setup: docs/agents.md.", ""]
     for c in SKILL_COMMANDS:
         out += [f"  {c.name} {c.args}", f"      {c.purpose}", f"      delivers: {c.delivers}", f"      e.g. {c.example}", ""]
     return "\n".join(out).rstrip()
@@ -329,14 +349,15 @@ def render_markdown() -> str:
     md = ["<!-- GENERATED by `scripts/watchover help --markdown` - edit scripts/watchover.py, not this file. -->",
           f"# akeyless-watchover usage guide (v{VERSION})", "",
           "Two ways to use akeyless-watchover:", "",
-          "1. **Talk to Claude** with the skill installed: use a *skill command* (below) or just describe the task.",
+          "1. **Talk to your AI agent** with the skill installed (any agent: see [agents.md](agents.md)): use a *skill command*",
+          "   (below) or just describe the task.",
           "2. **Run the kit** in your governance repository with `scripts/watchover <command>` (Python 3.10+, `pyyaml`;",
           "   Terraform >= 1.7 or OpenTofu >= 1.8; the `akeyless` CLI for live commands).", "",
           "`scripts/watchover help` prints everything in this guide in the terminal.", "",
-          "## 1. Skill commands (Claude)", "",
-          "Claude Code: `/akeyless-watchover <command> [args]`. Claude (web/desktop): write",
-          "`akeyless-watchover <command> [args]` or `/akeyless-watchover ...` - or simply describe the task; the skill also",
-          "triggers without a command.", "",
+          "## 1. Skill commands (any AI agent)", "",
+          "Write `akeyless-watchover <command> [args]`, or your agent's skill syntax (`/akeyless-watchover ...`,",
+          "`$akeyless-watchover ...`); MCP clients offer them as prompts `watchover-<command>`. Or simply describe the",
+          "task; the skill also triggers without a command. Set-up per agent: [agents.md](agents.md).", "",
           "| Command | Arguments | Purpose | Delivers | Example |", "|---|---|---|---|---|"]
     for c in SKILL_COMMANDS:
         md.append(f"| `{c.name}` | {_esc(c.args)} | {_esc(c.purpose)} | {_esc(c.delivers)} | `{c.example}` |")
@@ -359,14 +380,14 @@ def render_markdown() -> str:
             md += ["", "| Environment variable | Meaning |", "|---|---|"] + [f"| `{k}` | {v} |" for k, v in t.env]
         md += ["", "```bash"] + t.examples + ["```", ""]
     md += ["## 3. Typical sessions", "",
-           "**New design**", "```text", "/akeyless-watchover design <diagram>",
+           "**New design**", "```text", "akeyless-watchover design <diagram>",
            "-> review the five artifacts -> commit model changes -> scripts/watchover test -> merge request", "```", "",
-           "**Access change**", "```text", "/akeyless-watchover change <request>",
+           "**Access change**", "```text", "akeyless-watchover change <request>",
            "-> scripts/watchover simulate ... -> merge request (plan in CI) -> merge (apply)", "```", "",
            "**Existing account**", "```text", "scripts/watchover export --out export/ --profile admin ...",
-           "/akeyless-watchover import export/REPORT.md -> move files -> plan shows only imports -> apply", "```", "",
+           "akeyless-watchover import export/REPORT.md -> move files -> plan shows only imports -> apply", "```", "",
            "**Conjur**", "```text", "scripts/watchover conjur policy.yml --out export/conjur",
-           "/akeyless-watchover conjur export/conjur/bindings.yaml -> fill bindings -> gateway migration -> cut-over", "```", "",
+           "akeyless-watchover conjur export/conjur/bindings.yaml -> fill bindings -> gateway migration -> cut-over", "```", "",
            "## 4. Exit codes", "",
            "| Code | Meaning |", "|---|---|",
            "| 0 | success / all expectations met |",

@@ -45,15 +45,23 @@ deny rules mixed with other capabilities, associations without sub-claims to aut
 force them, associations to unmanaged auth methods, invalid management-plane values. Treat an
 \texttt{allow\_*} flag in a merge request as a finding that needs a reason.
 
-\section{Working with Claude}
+\section{Working with AI agents}
 \begin{itemize}
-\item Do not paste secrets, tokens or state files into a conversation. The skill never needs them:
-  it works on names, paths, claims and plans.
-\item Treat Claude's output as a proposal: it enters Akeyless only through the same tests,
+\item Do not paste secrets, tokens or state files into a conversation, whichever agent or model you
+  use. The skill never needs them: it works on names, paths, claims and plans.
+\item Treat the agent's output as a proposal: it enters Akeyless only through the same tests,
   plan and review as any human change. Statements marked \textbf{VERIFY} are not confirmed by a
-  primary source.
+  primary source. The guards, the simulator and the tests do not depend on the model.
+\item Agents with a shell run commands in your repository. Prefer agents that ask before running
+  commands, and give them the plan identity's rights at most -- never the apply identity's.
+\item The MCP server runs kit commands for any connected client. It hides the commands that call
+  Akeyless unless started with \texttt{--live}; enable that only for trusted clients, with
+  credentials limited to what the task needs. \texttt{watchover\_account\_settings} changes the
+  account: the server marks it destructive so that clients can ask for confirmation.
+\item Install skills only from sources you trust and review updates like code: a skill's
+  instructions and scripts run with the agent's permissions.
 \item Exported \texttt{REPORT.md} and plans can contain internal names and e-mail addresses; share
-  them according to your data-handling rules.
+  them, and choose the agent or model provider, according to your data-handling rules.
 \end{itemize}
 
 \section{The demo back end}

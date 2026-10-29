@@ -1,0 +1,8 @@
+# Optional sidecar read by OpenAI Codex / ChatGPT (UI metadata and invocation policy).
+# Other agents ignore this folder; SKILL.md alone defines the skill.
+interface:
+  display_name: "akeyless-watchover"
+  short_description: "Akeyless governance as code: paths, roles, auth methods, Terraform"
+  default_prompt: "Use akeyless-watchover to design the Akeyless paths and access roles for: "
+policy:
+  allow_implicit_invocation: true

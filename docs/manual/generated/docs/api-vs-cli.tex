@@ -130,9 +130,9 @@ For ad-hoc SQL inventory queries outside Terraform, the community also publishes
 \section{In this kit}\label{in-this-kit}}
 
 \begin{Verbatim}[fontsize=\footnotesize,breaklines,breakanywhere,frame=leftline,framerule=1.2pt,rulecolor=\color{wo-rule},xleftmargin=6pt]
-## person with an SSO CLI profile
+# person with an SSO CLI profile
 scripts/watchover export --out export/ --transport cli --profile my-sso
-## CI, no CLI binary
+# CI, no CLI binary
 export AKEYLESS_TOKEN=$(CI_JWT=$JWT AKEYLESS_ACCESS_ID=p-xxxx scripts/watchover token)
 scripts/watchover export --out export/ --transport api --hcl --types targets,groups,gateway \
   --gateway-api https://gw.example.com:8000/api/v2

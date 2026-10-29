@@ -445,3 +445,138 @@ def test_manual_has_an_example_and_session_for_every_command():
         assert os.path.exists(os.path.join(man, "generated", "examples", t.name + ".tex")), t.name
     for c in wo.SKILL_COMMANDS:
         assert os.path.exists(os.path.join(man, "sessions", c.name + ".tex")), c.name
+
+
+# ---------- agent-neutral packaging ----------
+import akl_skill  # noqa: E402
+import watchover_mcp  # noqa: E402
+
+
+def test_skill_source_follows_the_agent_skills_spec_and_version_matches():
+    import watchover as wo
+    assert akl_skill.validate(akl_skill.SRC) == []
+    meta, body = akl_skill.split_frontmatter(open(os.path.join(akl_skill.SRC, "SKILL.md")).read())
+    assert meta["metadata"]["version"] == wo.VERSION
+    # vendor-neutral: no product name in the instructions an agent follows
+    for vendor in ("Claude", "ChatGPT", "Copilot", "Gemini", "Cursor", "Codex"):
+        assert vendor not in body, vendor
+
+
+@pytest.mark.parametrize("front,msg", [
+    ("name: akeyless-watchover\ndescription: x\nversion: 1", "not in the Agent Skills specification"),
+    ("name: other-name\ndescription: x", "must match the folder"),
+    ("name: Bad--Name\ndescription: x", "1-64 characters"),
+    ("name: akeyless-watchover\ndescription: " + "x" * 1025, "1-1024"),
+    ("name: akeyless-watchover\ndescription: x\ncompatibility: " + "y" * 501, "1-500"),
+    ("name: akeyless-watchover\ndescription: x\nmetadata: {version: 1}", "string values"),
+])
+def test_skill_validator_rejects(tmp_path, front, msg):
+    d = tmp_path / "akeyless-watchover"
+    d.mkdir()
+    (d / "SKILL.md").write_text(f"---\n{front}\n---\nbody\n")
+    assert any(msg in p for p in akl_skill.validate(str(d)))
+
+
+def test_build_writes_valid_package_and_prompt_pack(tmp_path):
+    res = akl_skill.build(str(tmp_path / "dist"))
+    assert akl_skill.validate(res["skill"]) == []
+    for rel in ("SKILL.md", "agents/openai.yaml", "references/agents.md", "references/usage-guide.md",
+                "template/scripts/watchover", "template/terraform/main.tf"):
+        assert os.path.exists(os.path.join(res["skill"], rel)), rel
+    import zipfile
+    names = zipfile.ZipFile(res["skill_zip"]).namelist()
+    assert "akeyless-watchover/SKILL.md" in names and all(n.startswith("akeyless-watchover/") for n in names)
+    assert not any("__pycache__" in n or ".terraform/" in n for n in names)
+    pack = res["prompt_pack"]
+    full = open(os.path.join(pack, "system-prompt.md")).read()
+    assert not full.startswith("---") and "## Commands" in full
+    assert len(open(os.path.join(pack, "system-prompt-short.md")).read()) < 3000
+    assert os.path.exists(os.path.join(pack, "knowledge", "akeyless-watchover-instructions.md"))
+    assert os.path.exists(os.path.join(pack, "knowledge", "references", "rbac-model.md"))
+
+
+@pytest.mark.parametrize("agent,scope,suffix", [
+    ("claude", "project", ".claude/skills/akeyless-watchover"),
+    ("codex", "project", ".agents/skills/akeyless-watchover"),
+    ("copilot", "project", ".github/skills/akeyless-watchover"),
+    ("cursor", "project", ".cursor/skills/akeyless-watchover"),
+    ("gemini", "project", ".gemini/skills/akeyless-watchover"),
+    ("copilot", "user", ".copilot/skills/akeyless-watchover"),
+])
+def test_install_targets(agent, scope, suffix, tmp_path):
+    assert akl_skill.target_dir(agent, scope, str(tmp_path), None).endswith(suffix)
+
+
+def test_install_and_reuse_from_the_installed_copy(tmp_path):
+    target = akl_skill.install("custom", "project", dest=str(tmp_path / "skills"))
+    assert akl_skill.validate(target) == []
+    with pytest.raises(FileExistsError):
+        akl_skill.install("custom", "project", dest=str(tmp_path / "skills"))
+    # the packaged kit works from inside the installed skill (no repository needed)
+    kit = os.path.join(target, "template")
+    res = subprocess.run([sys.executable, os.path.join(kit, "scripts", "watchover.py"), "validate-skill"],
+                         capture_output=True, text=True, cwd=kit)
+    assert res.returncode == 0 and target in res.stdout, res.stdout + res.stderr
+
+
+# ---------- MCP server ----------
+def _mcp(*messages, env=None):
+    lines = "\n".join(json.dumps(m) for m in messages) + "\n"
+    res = subprocess.run([sys.executable, os.path.join(SCRIPTS, "watchover_mcp.py")], input=lines,
+                         capture_output=True, text=True, cwd=REPO, env={**os.environ, **(env or {})}, timeout=120)
+    return {r["id"]: r for r in map(json.loads, res.stdout.splitlines())}
+
+
+def _req(i, method, params=None):
+    return {"jsonrpc": "2.0", "id": i, "method": method, "params": params or {}}
+
+
+def test_mcp_handshake_tools_resources_prompts():
+    out = _mcp(_req(1, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                      "clientInfo": {"name": "t", "version": "1"}}),
+               {"jsonrpc": "2.0", "method": "notifications/initialized"},
+               _req(2, "tools/list"), _req(3, "resources/list"), _req(4, "prompts/list"),
+               _req(5, "tools/call", {"name": "watchover_simulate",
+                                      "arguments": {"model": "terraform/model",
+                                                    "expectations": "terraform/model/access_expectations.yaml"}}),
+               _req(6, "resources/read", {"uri": "watchover://skill/SKILL.md"}),
+               _req(7, "prompts/get", {"name": "watchover-change", "arguments": {"request": "give team x read"}}),
+               _req(8, "nope"), _req(9, "tools/call", {"name": "watchover_verify", "arguments": {}}))
+    init = out[1]["result"]
+    assert init["protocolVersion"] == "2025-06-18" and init["serverInfo"]["name"] == "watchover-mcp"
+    tools = {t["name"]: t for t in out[2]["result"]["tools"]}
+    assert "watchover_simulate" in tools and "watchover_verify" not in tools and "watchover_mcp" not in tools
+    fw = tools["watchover_forwarder"]["inputSchema"]
+    assert fw["properties"]["event"]["type"] == "array" and "name" in fw["required"]
+    assert fw["properties"]["type"]["enum"] == ["email", "webhook", "slack", "teams", "service_now"]
+    assert "watchover://docs/agents.md" in {r["uri"] for r in out[3]["result"]["resources"]}
+    assert {p["name"] for p in out[4]["result"]["prompts"]} >= {"watchover-design", "watchover-change"}
+    call = out[5]["result"]
+    assert call["isError"] is False and "0 mismatch(es)" in call["content"][0]["text"]
+    assert out[6]["result"]["contents"][0]["text"].startswith("---\nname: akeyless-watchover")
+    msg = out[7]["result"]["messages"][0]["content"]["text"]
+    assert "give team x read" in msg and "<skill-instructions>" in msg
+    assert out[8]["error"]["code"] == -32601 and out[9]["error"]["code"] == -32602
+
+
+def test_mcp_live_tools_are_opt_in_and_arguments_map_to_options():
+    out = _mcp(_req(1, "tools/list"), env={"WATCHOVER_MCP_LIVE": "1"})
+    names = {t["name"] for t in out[1]["result"]["tools"]}
+    assert {"watchover_verify", "watchover_export", "watchover_account_settings", "watchover_token"} <= names
+    import argparse as _ap
+    p = dict((n, pr) for n, _s, pr, _l in watchover_mcp.exposed_tools())["forwarder"]
+    argv = watchover_mcp.to_argv(p, {"name": "/e/x", "type": "email", "event": ["usage", "usage-report"],
+                                     "disabled": True, "every": 6})
+    assert argv == ["--name", "/e/x", "--type", "email", "--event", "usage", "--event", "usage-report",
+                    "--every", "6", "--disabled"]
+    with pytest.raises(ValueError):
+        watchover_mcp.to_argv(p, {"bogus": 1})
+    assert isinstance(p, _ap.ArgumentParser)
+
+
+def test_mcp_tool_errors_are_reported_not_raised():
+    out = _mcp(_req(1, "tools/call", {"name": "watchover_forwarder",
+                                      "arguments": {"name": "/e/x", "type": "teams", "event": ["usage"],
+                                                    "items_source": ["/*"]}}))
+    r = out[1]["result"]
+    assert r["isError"] is True and "gateway-source" in r["content"][0]["text"]

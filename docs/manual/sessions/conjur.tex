@@ -1,8 +1,8 @@
 % Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
 \begin{session}{Example session}
-\you /akeyless-watchover conjur \emph{[attached root.yml and prod.yml]}
+\you akeyless-watchover conjur \emph{[attached root.yml and prod.yml]}
 
-\claude Runs (or tells you to run) \texttt{scripts/watchover conjur root.yml prod.yml --out export/conjur},
+\agent Runs (or tells you to run) \texttt{scripts/watchover conjur root.yml prod.yml --out export/conjur},
 explains each translated role (Conjur layer/group $\rightarrow$ Akeyless role on the migrated
 paths), and for every entry of \texttt{bindings.yaml} proposes the auth method and sub-claims
 (e.g.\ host \texttt{prod/payments/checkout} $\rightarrow$ K8s auth, namespace \texttt{payments}).

@@ -5,15 +5,15 @@ with the kit: a \emph{payments} business unit with a \emph{checkout} application
 \texttt{prod} and \texttt{nonprod}, human access through Entra ID (OIDC) and workloads on AWS and
 Kubernetes. Replace the names with yours as you go.
 
-\section{Step 1 -- Describe the organisation to Claude}
+\section{Step 1 -- Describe the organisation to your AI agent}
 \begin{session}{Design from a description}
-\you \texttt{/akeyless-watchover design} Payments BU, apps checkout and refunds, environments prod
+\you \texttt{akeyless-watchover design} Payments BU, apps checkout and refunds, environments prod
 and nonprod. Payments admins (Entra group grp-akl-payments-admins) manage nonprod and read prod.
 Checkout prod pods (EKS namespace payments, service account payments-api) read their own prod
 secrets. Auditors list everything. Break-glass secrets are under prod/break-glass and nobody
 but the platform team reads them.
 
-\claude Returns five artefacts: (1) the path tree
+\agent Returns five artefacts: (1) the path tree
 \texttt{/payments/<app>/<env>/...}; (2) an access matrix persona~$\times$~path; (3) the YAML model
 (\texttt{model/roles/payments.yaml}, \texttt{model/auth\_methods.yaml}, \texttt{model/folders.yaml});
 (4) \texttt{access\_expectations.yaml} entries that prove the matrix; (5) what the plan must show,
@@ -76,7 +76,7 @@ Then create the CI variables: \texttt{AKEYLESS\_PIPELINE\_ACCESS\_ID}, and as ma
   identity. CODEOWNERS asks the business unit and the platform team to approve.
 \item Read the plan. Creations and in-place updates are expected; \emph{replacements} of roles or
   auth methods are red flags (names are ForceNew; an auth method replacement changes its access ID).
-  Ask Claude: \texttt{/akeyless-watchover review <paste the plan>}.
+  Ask your agent: \texttt{akeyless-watchover review <paste the plan>}.
 \item Merge. The apply job runs behind a protected environment, then applies the account settings
   the provider cannot manage (\texttt{watchover account-settings}).
 \end{enumerate}

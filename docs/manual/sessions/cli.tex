@@ -1,8 +1,8 @@
 % Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
 \begin{session}{Example session}
-\you /akeyless-watchover cli create a temporary read rule for 60 minutes
+\you akeyless-watchover cli create a temporary read rule for 60 minutes
 
-\claude \begin{lstlisting}
+\agent \begin{lstlisting}
 akeyless set-role-rule --role-name /governance/roles/payments/team-admin \
   --path "/payments/refunds/prod/*" --capability read --capability list --ttl 60
 \end{lstlisting}

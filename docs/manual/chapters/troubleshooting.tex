@@ -69,6 +69,21 @@ gateway log\_forwarding.type & syslog or splunk; other targets need an extra res
   edit it instead, or choose another name.
 \end{description}
 
+\section{AI agents}
+\begin{description}[style=nextline,leftmargin=1.5em]
+\item[The agent does not use the skill] Check the folder with \texttt{install-skill --dry-run} against
+  the agent's documentation, restart the agent (skills are discovered at start-up), and invoke it
+  explicitly (\texttt{akeyless-watchover help}). Some agents need skills enabled in their settings.
+\item[The skill appears twice] Two installations are visible to the same agent (several agents
+  read each other's folders). Keep one.
+\item[The upload is rejected] Validate the package: \texttt{scripts/watchover validate-skill dist/akeyless-watchover}.
+\item[MCP tools are missing] \texttt{scripts/watchover mcp --list} shows what the server offers; live
+  commands need \texttt{--live}; check that the client starts the server with the right \texttt{--repo}.
+\item[A chat assistant claims it ran a command] It cannot without a tool. Run the command yourself;
+  the instructions tell every agent never to claim results it did not obtain -- report it as a
+  model error.
+\end{description}
+
 \section{Frequently asked questions}
 \begin{description}[style=nextline,leftmargin=1.5em]
 \item[Can I edit roles in the console?] You can, but the next apply reverts it. Change Git.
@@ -81,4 +96,7 @@ gateway log\_forwarding.type & syslog or splunk; other targets need an extra res
 \item[Several Gateway clusters?] One state or workspace per cluster, each with its own
   \texttt{gateway\_api} and \texttt{model/gateway.yaml}.
 \item[Does the skill need access to my account?] No. It produces files and commands; you run them.
+\item[Which AI agent or model should I use?] Any: the skill, the MCP server and the prompt pack are
+  vendor-neutral. Larger models follow the long instructions more reliably; the offline checks catch
+  what any model gets wrong.
 \end{description}

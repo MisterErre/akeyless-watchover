@@ -45,13 +45,22 @@ jobs:
       - run: pip install pyyaml pytest
       - run: python3 -m pytest -q scripts/tests
       - run: python3 scripts/akl_simulate.py --model terraform/model --expectations terraform/model/access_expectations.yaml
+      - run: python3 scripts/watchover.py validate-skill
   package:
     needs: [terraform, python]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
       - run: scripts/build_skill.sh
+      - run: python3 scripts/watchover.py validate-skill dist/akeyless-watchover
       - uses: actions/upload-artifact@v4
         with:
           name: akeyless-watchover-skill
           path: dist/akeyless-watchover.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: akeyless-watchover-prompt-pack
+          path: dist/akeyless-watchover-prompt-pack.zip

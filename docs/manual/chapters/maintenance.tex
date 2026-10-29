@@ -35,7 +35,20 @@ simulator, then packages the skill as an artefact.
 \end{enumerate}
 Adding a skill command: add it to \texttt{SKILL\_COMMANDS} and to the command table in
 \texttt{skill/akeyless-watchover/SKILL.md} (a test checks they match), and write its example session
-in \texttt{docs/manual/sessions/<name>.tex}.
+in \texttt{docs/manual/sessions/<name>.tex}. MCP clients see the change automatically: tools and
+prompts are generated from the same registry.
+
+\section{Keeping the skill agent-neutral}
+\begin{itemize}
+\item Use only Agent Skills fields in the frontmatter; \texttt{validate-skill} (and CI) enforce it.
+  Keep \texttt{metadata.version} equal to \texttt{VERSION}.
+\item Do not name a product or a vendor tool in \texttt{SKILL.md}; a test rejects product names in its body.
+  Describe capabilities instead (``if you can run a shell'').
+\item Product-specific settings go into optional sidecars that other agents ignore
+  (\texttt{agents/openai.yaml}).
+\item When an agent changes where it looks for skills, update \texttt{AGENTS} in
+  \texttt{scripts/akl\_skill.py} and the table in \texttt{docs/agents.md}.
+\end{itemize}
 
 \section{Adding a guard}
 Add a precondition to \texttt{terraform\_data.model\_guards} in \texttt{terraform/main.tf}, a

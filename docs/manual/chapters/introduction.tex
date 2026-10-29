@@ -6,8 +6,10 @@ reviewed, tested and delivered from one Git repository: one repository, one chan
 configuration delivered. It has two parts that work together:
 
 \begin{description}[style=nextline,leftmargin=1.5em]
-\item[The skill] A Claude skill (\texttt{SKILL.md} plus reference documents). In a conversation,
-  Claude translates an organisation diagram or a plain-language access request into Akeyless
+\item[The skill] An agent-neutral skill in the open Agent Skills format (\texttt{SKILL.md} plus
+  reference documents), usable by any AI agent and model: natively by agents that support the
+  format, through the bundled MCP server, or as a prompt pack (Chapter~\ref{doc-agents}). In a
+  conversation, the agent translates an organisation diagram or a plain-language access request into Akeyless
   paths, roles, auth methods and associations, reviews changes, writes exact CLI commands and
   explains Akeyless authorization precisely. Chapter~\ref{ch:skill-commands} lists its commands.
 \item[The kit] A tested repository template: a YAML model, generic Terraform that delivers it with
@@ -36,7 +38,7 @@ integrating consumers (applications, Kubernetes injectors, CI secret retrieval).
 
 \section{How this manual is organised}
 \begin{description}[style=nextline,leftmargin=1.5em]
-\item[Part~\ref{part:start}, Getting started] installation, a guided first delivery, and recipes for everyday tasks.
+\item[Part~\ref{part:start}, Getting started] installation, using the skill with any AI agent, a guided first delivery, and recipes for everyday tasks.
 \item[Part~\ref{part:concepts}, Concepts and design] the architecture, how Akeyless authorization
   works, and how to derive paths and roles from an organisation diagram.
 \item[Part~\ref{part:reference}, Reference] every skill command and kit command with \emph{all}
@@ -73,5 +75,5 @@ Where the command shown differs from the one executed (a production URL instead 
 endpoint), the box says so.
 \end{note}
 
-The \emph{example sessions} of the skill commands (talking to Claude) are illustrative: Claude's
+The \emph{example sessions} of the skill commands (talking to your agent) are illustrative: the agent's
 answers depend on the conversation. They show the shape of the output, abridged.

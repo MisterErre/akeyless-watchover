@@ -1,7 +1,8 @@
 # akeyless-watchover
 
-**A Claude skill and delivery kit for Akeyless governance as code:** RBAC and path design, CLI and
-Terraform. You describe or draw how your organisation is structured. Claude turns it into Akeyless
+**An AI-agent skill and delivery kit for Akeyless governance as code:** RBAC and path design, CLI and
+Terraform. It works with any AI agent and model (Claude, OpenAI Codex/ChatGPT, GitHub Copilot, Cursor,
+Gemini, local models). You describe or draw how your organisation is structured. The agent turns it into Akeyless
 paths, access roles, auth methods and associations as a reviewed YAML model, and Terraform
 delivers it through one repository, one change, one pipeline.
 
@@ -10,7 +11,7 @@ delivers it through one repository, one change, one pipeline.
 
 ## What you can do with it
 
-| Ask Claude... | You get |
+| Ask your agent... | You get |
 |---|---|
 | "Here is our org/app diagram - design the Akeyless RBAC" | path tree, access matrix, role/auth-method YAML, access expectations, plan expectations, CLI equivalent |
 | "Give team X read on prod, write on nonprod" | a minimal diff to `model/roles/<bu>.yaml` + updated expectations |
@@ -24,34 +25,40 @@ delivers it through one repository, one change, one pipeline.
 | "Prove that X can / cannot access Y" | offline simulation on every PR + live verification per persona |
 | "How do I do this with the CLI?" / "API or CLI?" | exact commands checked against the CLI reference, and when to use REST instead ([docs/api-vs-cli.md](docs/api-vs-cli.md)) |
 
-## Install the skill
+## Use it with any AI agent
 
-**Claude (web/desktop):** build the ZIP and upload it under **Customize > Skills** (older UI:
-**Settings > Capabilities > Skills > Upload skill**). Code execution must be enabled.
-
-```bash
-scripts/build_skill.sh           # -> dist/akeyless-watchover.zip  (also attached to every CI run as an artifact)
-```
-
-**Claude Code:** unzip into your personal or project skills folder:
+The skill follows the open [Agent Skills](https://agentskills.io) format and names no vendor tools.
+Agents without skill support get the same content over MCP or as a prompt pack.
+Details for each agent: **[docs/agents.md](docs/agents.md)**.
 
 ```bash
-unzip dist/akeyless-watchover.zip -d ~/.claude/skills/          # personal
-unzip dist/akeyless-watchover.zip -d <project>/.claude/skills/   # project
+scripts/watchover build-skill                                  # dist/akeyless-watchover.zip + dist/akeyless-watchover-prompt-pack.zip
+scripts/watchover install-skill --agent codex   --project ../akeyless-governance   # .agents/skills/
+scripts/watchover install-skill --agent claude  --scope user                       # ~/.claude/skills/
+scripts/watchover install-skill --agent copilot --project .                        # .github/skills/
+scripts/watchover install-skill --agent cursor|gemini|agents|custom ...            # see docs/agents.md
+scripts/watchover mcp --repo ../akeyless-governance            # MCP server: tools, docs, skill prompts
 ```
 
-The ZIP contains `SKILL.md`, `references/` (this repo's `docs/`) and `template/` (the tested
-kit). Claude loads the skill automatically when you talk about Akeyless governance.
+| Your agent supports... | Use |
+|---|---|
+| Agent Skills (Claude, Codex, Copilot, Cursor, Gemini CLI, ...) | `install-skill`, or upload `dist/akeyless-watchover.zip` in apps with a skills screen |
+| MCP (stdio) | `scripts/watchover_mcp.py`: kit commands as tools, docs/model as resources, skill commands as prompts |
+| neither (chat products, model APIs) | `dist/prompt-pack/`: system prompt (full or short) + knowledge files |
+
+The package contains `SKILL.md`, `references/` (this repository's `docs/`) and `template/` (the
+tested kit). `scripts/watchover validate-skill` checks it against the Agent Skills specification.
 
 ## Commands and help
 
-**Skill commands** (type to Claude; Claude Code: `/akeyless-watchover <command>`):
+**Skill commands** (type them to your agent: `akeyless-watchover <command>`, or the agent's skill syntax such as
+`/akeyless-watchover <command>`; MCP clients list them as prompts `watchover-<command>`):
 `help`, `design`, `change`, `review`, `pipeline`, `import`, `conjur`, `pki`, `harden`, `gateway`,
 `verify`, `cli`, `explain`. Start with `/akeyless-watchover help`.
 
 **Kit commands** (terminal, in your governance repo): `scripts/watchover <command>` -
 `test`, `simulate`, `verify`, `export`, `forwarder`, `conjur`, `account-settings`, `token`, `build-skill`,
-`help`, `version`.
+`install-skill`, `validate-skill`, `mcp`, `help`, `version`.
 
 ```bash
 scripts/watchover help                 # overview
@@ -72,10 +79,11 @@ terraform/   data-driven Terraform (provider akeyless-community/akeyless ~> 2.0)
   tests/     terraform test (mocked provider), fixtures, guard_messages.sh
 bootstrap/   one-time CI identity (OAuth2/JWT trusting GitHub or GitLab OIDC) + plan/apply roles
 scripts/     watchover (entry point) + akl_simulate.py akl_verify.py akl_export.py akl_forwarder.py
-             conjur2akeyless.py akl_account_settings.py akl_ci_token.sh build_skill.sh
+             conjur2akeyless.py akl_account_settings.py akl_ci_token.sh akl_skill.py watchover_mcp.py
 ci/          GitHub Actions + GitLab CI templates, CODEOWNERS example
 docs/        full documentation (also bundled in the skill as references/)
-skill/       SKILL.md source
+skill/       SKILL.md source (Agent Skills format) + agents/openai.yaml sidecar
+AGENTS.md    instructions for AI coding agents working on this repository (CLAUDE.md/GEMINI.md import it)
 ```
 
 1. **Bootstrap once** (admin): `cd bootstrap && terraform apply -var-file=bootstrap.tfvars` and
@@ -94,7 +102,7 @@ skill/       SKILL.md source
 - Facts come from docs.akeyless.io, the Akeyless OpenAPI/Go SDK v5.0.x and the provider v2.0.5
   source and schema. Anything not confirmed is marked **VERIFY** ([docs/limitations.md](docs/limitations.md)).
 - Offline tests (no Akeyless account needed): 22 Terraform test runs, plus 15 proofs that each
-  negative fixture fails with the intended guard, 3 bootstrap runs and 71 Python tests. They run on
+  negative fixture fails with the intended guard, 3 bootstrap runs and 92 Python tests. They run on
   OpenTofu and HashiCorp Terraform in this repo's CI.
 - Live checks (your account): plan review, `akl_verify.py` per persona, nightly drift.
 

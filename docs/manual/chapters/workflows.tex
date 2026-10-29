@@ -6,8 +6,8 @@ CODEOWNERS approval) $\rightarrow$ merge (apply) $\rightarrow$ optional \texttt{
 
 \section{Grant access}
 \begin{enumerate}
-\item Ask Claude for the smallest diff:
-  \texttt{/akeyless-watchover change give fraud-analysts read on /payments/+/prod/*}.
+\item Ask your agent for the smallest diff:
+  \texttt{akeyless-watchover change give fraud-analysts read on /payments/+/prod/*}.
 \item Apply the diff to \texttt{terraform/model/roles/<bu>.yaml} and add the new checks to
   \texttt{access\_expectations.yaml} -- including at least one \emph{negative} check (what must stay denied).
 \item \texttt{scripts/watchover simulate ... --explain} shows which rule grants what.
@@ -23,7 +23,7 @@ follows IdP group membership through sub-claims, so remove the person from the I
 
 \section{Onboard a new application or business unit}
 \begin{enumerate}
-\item \texttt{/akeyless-watchover design <the new BU/app, environments and personas>}.
+\item \texttt{akeyless-watchover design <the new BU/app, environments and personas>}.
 \item New business unit: a new \texttt{model/roles/<bu>.yaml} and a CODEOWNERS line for it.
   New application in an existing BU: usually no role change at all, because rules use
   \texttt{/<bu>/+/<env>/*}; add folders and expectations.
@@ -40,7 +40,7 @@ Kubernetes and LDAP methods also need Gateway-side configuration, which is out o
 
 \section{Emergency change (break-glass)}
 When production is down and the pipeline cannot wait: make the change with the CLI as an
-administrator (\texttt{/akeyless-watchover cli <task>} gives the exact command), then
+administrator (\texttt{akeyless-watchover cli <task>} gives the exact command), then
 \emph{immediately} raise the merge request that codifies it. If you skip the merge request, the
 nightly drift job fails and the next apply reverts your change (role rules are authoritative).
 
@@ -51,7 +51,7 @@ requested, approved and audited in Akeyless: for Secure Remote Access, \texttt{s
 \texttt{request\_access} for requesters and \texttt{approval\_authority} on a separate approver role
 (the two cannot be combined in one rule; Chapter~\ref{doc-rbac-model}). How access requests work for
 other object types depends on your Akeyless edition -- ask
-\texttt{/akeyless-watchover explain access requests} and check the result against your account.
+\texttt{akeyless-watchover explain access requests} and check the result against your account.
 
 \section{Rename a role or an auth method}
 Names are ForceNew in the provider: changing the YAML key alone destroys and recreates the object
@@ -71,7 +71,7 @@ cut-over first.
 \begin{enumerate}
 \item \texttt{scripts/watchover export --out export/ --profile admin} (or \texttt{--transport api}).
   Use \texttt{--types}, \texttt{--only} or the persona filter to start small.
-\item \texttt{/akeyless-watchover import export/REPORT.md}: Claude resolves every report item.
+\item \texttt{akeyless-watchover import export/REPORT.md}: the agent resolves every report item.
 \item Move the model files and \texttt{imports.tf} into \texttt{terraform/}; iterate until the plan
   shows \emph{imports only}; apply. For objects outside the model use \texttt{--hcl --generate}.
 \end{enumerate}
@@ -83,7 +83,7 @@ by \texttt{scripts/watchover conjur}, which writes roles and a bindings file in 
 auth method and sub-claims for each Conjur host and user. Chapter~\ref{doc-conjur-migration}.
 
 \section{Set up certificate issuance}
-\texttt{/akeyless-watchover pki <requirements>} designs CA keys and issuers in
+\texttt{akeyless-watchover pki <requirements>} designs CA keys and issuers in
 \texttt{model/pki.yaml}, the requester roles and an expiry notification. Chapter~\ref{doc-pki}.
 
 \section{Add or adopt an event forwarder}
@@ -94,7 +94,7 @@ existing one under Terraform, recreate its definition with the same command plus
 unexpected update. Put the printed secret keys into \texttt{TF\_VAR\_event\_forwarder\_secrets}.
 
 \section{Harden the account}
-\texttt{/akeyless-watchover harden} proposes \texttt{account\_settings} (the part the provider
+\texttt{akeyless-watchover harden} proposes \texttt{account\_settings} (the part the provider
 manages), \texttt{account\_settings\_cli} (bound IPs, client types, locks; applied by
 \texttt{watchover account-settings} in the apply job), mandatory custom fields and key policies.
 Always run \texttt{watchover account-settings --dry-run} first: a wrong \texttt{bound-ips} can lock

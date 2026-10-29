@@ -12,7 +12,10 @@ all kit commands & 0 success; 2 usage error (unknown command or option, invalid 
 \texttt{conjur} & 0 written; 2 unreadable or invalid policy file \\
 \texttt{account-settings} & 2 invalid settings; otherwise the exit code of \texttt{akeyless update-account-settings}; 0 with \texttt{--dry-run} \\
 \texttt{token} & 0 token printed; 1 missing settings or authentication failed \\
-\texttt{build-skill} & 0 ZIP written \\
+\texttt{build-skill} & 0 packages written; 2 the built skill failed validation \\
+\texttt{install-skill} & 0 installed (or printed with \texttt{--dry-run}); 2 target exists without \texttt{--force}, or \texttt{custom} without \texttt{--dest} \\
+\texttt{validate-skill} & 0 valid; 1 problems found (listed) \\
+\texttt{mcp} & runs until the client closes stdin \\
 CI drift job & \texttt{plan -detailed-exitcode}: 0 no changes, 2 drift (job fails), 1 error \\
 \bottomrule
 \end{longtable}}
@@ -34,6 +37,8 @@ CI drift job & \texttt{plan -detailed-exitcode}: 0 no changes, 2 drift (job fail
 \texttt{TF\_VAR\_event\_forwarder\_secrets} & JSON map for \texttt{*\_var} keys of event forwarders \\
 \texttt{TF\_VAR\_gateway\_secrets} & JSON map for \texttt{*\_var} keys in \texttt{gateway.yaml} \\
 \texttt{TF\_VAR\_gateway\_api} & Gateway V2 API for gateway objects (CI variable \texttt{AKEYLESS\_GATEWAY\_API}) \\
+\texttt{WATCHOVER\_REPO} & \texttt{mcp}: kit root the tools run in (default: the repository of the server) \\
+\texttt{WATCHOVER\_MCP\_LIVE} & \texttt{mcp}: \texttt{1} also exposes the commands that call Akeyless \\
 \bottomrule
 \end{longtable}}
 
@@ -51,13 +56,16 @@ bootstrap/            one-time CI identity (OAuth2/JWT) + plan/apply roles, own 
 scripts/              watchover (entry point) and the tools behind it
   tests/              pytest suite, fake CLI/REST back ends, fixtures
 ci/                   GitHub Actions and GitLab CI templates, CODEOWNERS example
-skill/                SKILL.md source of the Claude skill
+skill/                skill source: SKILL.md (Agent Skills format), agents/openai.yaml sidecar
+AGENTS.md             instructions for AI coding agents working on this repository
+                      (CLAUDE.md and GEMINI.md import it)
 docs/                 Markdown documentation (bundled in the skill), this PDF
   manual/             LaTeX sources of this manual, build.py, demo back end
 \end{lstlisting}
 
 \chapter{Glossary}\label{app:glossary}
 \begin{description}[style=nextline,leftmargin=1.5em,font=\normalfont\bfseries]
+\item[Agent Skills] Open format for packaging instructions, references and scripts as a folder with a \texttt{SKILL.md}; read by many AI agents (\url{https://agentskills.io}).
 \item[Access role] An Akeyless role: a set of rules (path + capabilities) plus management-plane permissions.
 \item[Association] The binding of a role to an auth method, optionally narrowed by sub-claims.
 \item[Auth method] How an identity authenticates (OIDC, SAML, AWS IAM, Kubernetes, API key, \ldots); it carries an access ID.
@@ -68,8 +76,10 @@ docs/                 Markdown documentation (bundled in the skill), this PDF
 \item[ForceNew] A provider attribute whose change replaces the object (destroy + create).
 \item[Guard] A Terraform precondition that rejects an invalid or unsafe model before any change.
 \item[Management plane] Who may administer Akeyless itself (audit, analytics, gateways, event centre \ldots), as opposed to accessing secrets.
+\item[MCP] Model Context Protocol: lets an AI client use a server's tools, resources and prompts. \texttt{watchover mcp} is such a server.
 \item[Model] The YAML files under \texttt{terraform/model/}: the single source of truth.
 \item[Persona] A test identity (auth method + claims) used in access expectations.
+\item[Prompt pack] The skill as plain instructions and knowledge files, for assistants without skill or MCP support.
 \item[Rule type] What a rule applies to: items, targets, roles, auth methods, SRA, ARA.
 \item[SRA] Secure Remote Access: brokered sessions to infrastructure.
 \item[Sub-claims] Claim values an identity must present for an association to apply (OR within a key, AND across keys).
@@ -82,6 +92,8 @@ docs/                 Markdown documentation (bundled in the skill), this PDF
 \item Akeyless OpenAPI specification and Go SDK v5.0.x (the API operations and their request schemas)
 \item Terraform provider \texttt{akeyless-community/akeyless} v2.0.5: source code and schema
   (\url{https://registry.terraform.io/providers/akeyless-community/akeyless/latest/docs})
+\item Agent Skills specification: \url{https://agentskills.io/specification}; the skills and MCP documentation of
+  the agents listed in Chapter~\ref{doc-agents}; Model Context Protocol: \url{https://modelcontextprotocol.io}
 \item Terraform and OpenTofu documentation for \texttt{terraform test}, mocked providers and import blocks
 \end{itemize}
 Statements that no primary source confirms are marked \textbf{VERIFY} (Chapter~\ref{doc-limitations}).

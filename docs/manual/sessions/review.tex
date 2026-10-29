@@ -1,8 +1,8 @@
 % Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
 \begin{session}{Example session}
-\you /akeyless-watchover review \emph{[pasted plan]}
+\you akeyless-watchover review \emph{[pasted plan]}
 
-\claude \textbf{High}: \texttt{akeyless\_auth\_method\_k8s.this["/governance/auth/k8s-prod"]} \emph{must be
+\agent \textbf{High}: \texttt{akeyless\_auth\_method\_k8s.this["/governance/auth/k8s-prod"]} \emph{must be
 replaced} -- the name changed; consumers lose their access ID. Revert the rename or plan a cut-over.
 \textbf{Medium}: rule \texttt{/payments/*} with \texttt{update} on \texttt{team-admin} widens access
 to every app's prod; no expectation covers it. \textbf{OK}: 2 in-place rule updates match the request.

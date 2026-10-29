@@ -30,26 +30,25 @@ scripts/watchover version
 scripts/watchover test --tool tofu        # or --tool terraform; everything must pass
 \end{lstlisting}
 
-\section{Install the skill}
-Build the skill package (CI also attaches it to every run as the artefact
-\texttt{akeyless-watchover-skill}):
+\section{Install the skill for your AI agent}
+The skill is agent- and model-neutral. Build it once (CI also attaches the packages to every run):
 \begin{lstlisting}
-scripts/watchover build-skill             # -> dist/akeyless-watchover.zip
+scripts/watchover build-skill     # dist/akeyless-watchover/ (+ .zip) and dist/prompt-pack/ (+ .zip)
 \end{lstlisting}
-The ZIP contains \texttt{SKILL.md}, \texttt{references/} (the Markdown documents of \texttt{docs/})
-and \texttt{template/} (the tested kit).
-
-\paragraph{Claude (web and desktop)} Upload the ZIP under \textbf{Customize > Skills} (older
-interface: \textbf{Settings > Capabilities > Skills > Upload skill}). Code execution must be enabled.
-
-\paragraph{Claude Code} Unzip into your personal or project skills folder:
+Then pick the way your agent supports -- Chapter~\ref{doc-agents} has the details for each agent:
+\begin{description}[style=nextline,leftmargin=1.5em]
+\item[Agents that support Agent Skills] (Claude Code, OpenAI Codex, GitHub Copilot, Cursor, Gemini CLI, \ldots)
 \begin{lstlisting}
-unzip dist/akeyless-watchover.zip -d ~/.claude/skills/            # personal
-unzip dist/akeyless-watchover.zip -d <project>/.claude/skills/    # project
+scripts/watchover install-skill --agent <claude|codex|copilot|cursor|gemini|agents> \
+    --project ../akeyless-governance          # or --scope user
 \end{lstlisting}
-
-Claude loads the skill when you talk about Akeyless governance, or explicitly with
-\texttt{/akeyless-watchover <command>}. Check the installation with \texttt{/akeyless-watchover help}.
+  In apps with an upload screen (for example the Claude apps: \textbf{Customize > Skills}), upload
+  \texttt{dist/akeyless-watchover.zip}.
+\item[MCP clients] connect \texttt{scripts/watchover\_mcp.py} (tools, docs and the skill commands as prompts).
+\item[Chat products and model APIs without either] use the prompt pack: \texttt{system-prompt.md} (or
+  the short version) as instructions and \texttt{knowledge/} as uploaded files.
+\end{description}
+Check the installation by asking the agent for \texttt{akeyless-watchover help}.
 
 \section{Create your governance repository}
 The kit is a template: copy it into the repository that will own your Akeyless configuration.

@@ -1,8 +1,8 @@
 % Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
 \begin{session}{Example session}
-\you /akeyless-watchover change give the fraud-analysts Entra group read on refunds prod
+\you akeyless-watchover change give the fraud-analysts Entra group read on refunds prod
 
-\claude Smallest diff -- a new role, because no existing role has the right audience:
+\agent Smallest diff -- a new role, because no existing role has the right audience:
 \begin{lstlisting}
 +  /governance/roles/payments/fraud-analysts:
 +    description: Fraud analysts read refunds prod

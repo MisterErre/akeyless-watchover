@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.5.0 - 2026-10-29
+
+Agent- and model-neutral skill (docs/agents.md).
+
+Added
+- `SKILL.md` follows the open Agent Skills specification: `compatibility` and `metadata.version` fields, no vendor-specific wording.
+  - A capability table tells any agent what to do with a shell, MCP tools, files only, or chat only.
+  - The kit and the references are located by layout (package or repository).
+- `agents/openai.yaml` sidecar (display metadata and invocation policy for OpenAI Codex/ChatGPT); other agents ignore it.
+- `watchover build-skill` (`scripts/akl_skill.py`) builds the Agent Skills package and a prompt pack for assistants without skill support: full system prompt, short system prompt and knowledge files.
+- `watchover install-skill --agent claude|codex|copilot|cursor|gemini|agents|custom [--scope project|user]` installs the skill in each agent's skills folder.
+- `watchover validate-skill` checks a skill folder against the specification: fields, limits, name = folder, body length, referenced files. CI validates the source and the built package.
+- `watchover mcp` (`scripts/watchover_mcp.py`) is a dependency-free MCP stdio server.
+  - Tools: every kit command, with arguments generated from its options. Commands that call Akeyless are opt-in with `--live`.
+  - Resources: `SKILL.md`, the docs and the YAML model.
+  - Prompts: one per skill command.
+- `AGENTS.md` (with `CLAUDE.md` / `GEMINI.md` importing it) for AI coding agents working on the repository.
+- Manual: new chapter "Using akeyless-watchover with any AI agent". Installation, security, troubleshooting and maintenance are updated, and there are executed examples for the new commands.
+- CI uploads the prompt pack as a second artefact.
+
+Changed
+- Help texts, usage guide and manual address "your AI agent" instead of one product.
+- The packaged kit (`template/` inside an installed skill) can rebuild and validate its own skill without the repository.
+
 ## 1.4.0 - 2026-10-29
 
 Added

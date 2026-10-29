@@ -1,8 +1,8 @@
 % Illustrative example session (hand-written). See Section \ref{sec:how-examples}.
 \begin{session}{Example session}
-\you /akeyless-watchover pki internal TLS for *.payments.internal, 90 days, auto-renew
+\you akeyless-watchover pki internal TLS for *.payments.internal, 90 days, auto-renew
 
-\claude \texttt{model/pki.yaml} with a CA key (\texttt{/pki/ca/internal-root}) and an issuer
+\agent \texttt{model/pki.yaml} with a CA key (\texttt{/pki/ca/internal-root}) and an issuer
 (\texttt{/pki/issuers/payments-server}, \texttt{allowed\_domains}, TTL 7776000\,s,
 \texttt{auto\_renew} with \texttt{destination\_path}); a requester role for the payments workloads;
 an expiry forwarder (\texttt{watchover forwarder --preset certificates}); the CLI to issue and

@@ -1,6 +1,19 @@
 ---
 name: akeyless-watchover
-description: Use for Akeyless governance: path/folder design, access roles, rules, auth methods, sub-claims, PKI issuers, account settings via CLI and Terraform, incl. turning RBAC diagrams into IaC.
+description: >-
+  Akeyless governance as code. Use for any Akeyless RBAC, governance or IaC task: design or review
+  paths, folders, access roles, rules, auth methods and sub-claims; turn an organisation or RBAC
+  diagram into a YAML model delivered by Terraform; exact Akeyless CLI/API commands; PKI issuers,
+  account settings, event forwarders and Gateway admin access; export existing configuration to
+  Terraform; migrate RBAC from CyberArk Conjur; prove who can access what.
+compatibility: >-
+  Model- and vendor-neutral (Agent Skills format; a single-file prompt pack and an MCP server exist
+  for agents without skill support). Running the bundled kit needs a shell with Python 3.10+ and
+  pyyaml, Terraform >= 1.7 or OpenTofu >= 1.8, and the akeyless CLI or network access to the
+  Akeyless API for live commands.
+metadata:
+  version: "1.5.0"
+  repository: https://github.com/MisterErre/akeyless-watchover
 ---
 
 # akeyless-watchover - Akeyless governance as code
@@ -14,22 +27,36 @@ Facts here were verified against docs.akeyless.io, the Akeyless OpenAPI/Go SDK v
 source + schema of Terraform provider `akeyless-community/akeyless` **v2.0.5**. **VERIFY** marks
 what no primary source confirms - say so to the user instead of presenting it as fact.
 
-## Bundled files (when installed from the ZIP / repository)
+## Working in any agent
 
-- `references/` - full documentation: `usage-guide.md` (all commands and parameters), `api-vs-cli.md`, `rbac-model.md`, `path-and-role-design.md`,
-  `model-reference.md` (every YAML key), `terraform.md`, `pipeline.md`, `cli.md`,
-  `testing-and-verification.md`, `brownfield-import.md`, `conjur-migration.md`, `pki.md`,
-  `limitations.md`. Read the one matching the task before answering in depth.
-- `template/` - the tested delivery kit: `terraform/` (data-driven HCL + YAML model + tests),
-  `bootstrap/` (CI identity), `scripts/` (simulator, verifier, exporter, Conjur translator,
-  account settings, CI token), `ci/` (GitHub/GitLab pipelines, CODEOWNERS).
-If they are missing (skill installed as SKILL.md only), the source is
-`github.com/MisterErre/akeyless-watchover`; otherwise build from §4 of this file.
+These instructions are written for any AI agent and any model. Adapt to what your environment
+allows, and never claim to have run something you did not run:
+
+| Your environment | Do |
+|---|---|
+| Shell access (coding agents, CLIs, IDE agents) | Run the kit: `scripts/watchover <command>` from the kit root (below). Show real output. |
+| `watchover_*` tools available (MCP server `watchover-mcp`) | Call them instead of the shell; read the `watchover://docs/...` resources for references. |
+| Files readable, no shell | Read the references; give the user the exact commands to run and what to check in the output. |
+| Chat only (prompt pack, no files) | Answer from this text; give exact commands; mark anything you cannot check as VERIFY. |
+
+Locate the material once per task:
+- **Kit root** = the directory containing `scripts/watchover`: `template/` next to this file in the
+  packaged skill, or the root of the akeyless-watchover / governance repository you are working in.
+- **References** = `references/` next to this file, or `docs/` in the repository (same files).
+- If neither exists (instructions only), the source is `https://github.com/MisterErre/akeyless-watchover`;
+  otherwise build from §4 of this file.
+
+References: `usage-guide.md` (all commands and parameters), `agents.md` (how this skill runs on
+each agent), `api-vs-cli.md`, `rbac-model.md`, `path-and-role-design.md`, `model-reference.md`
+(every YAML key), `terraform.md`, `pipeline.md`, `cli.md`, `testing-and-verification.md`,
+`brownfield-import.md`, `conjur-migration.md`, `pki.md`, `limitations.md`. Read the one matching
+the task before answering in depth.
 
 ## Commands
 
-The user may start a request with a command - `/akeyless-watchover <command> [args]` (Claude Code),
-`akeyless-watchover <command> [args]` or `/akeyless-watchover ...` elsewhere - or just describe the task.
+The user may start a request with a command - `akeyless-watchover <command> [args]`, or the
+skill invocation syntax of their agent (for example `/akeyless-watchover <command>` or
+`$akeyless-watchover <command>`) - or just describe the task.
 Map plain requests to the closest command. Without arguments, ask for the one missing input.
 
 | Command | Arguments | Deliver |
@@ -50,8 +77,8 @@ Map plain requests to the closest command. Without arguments, ask for the one mi
 
 `help`: reply with the content of `references/usage-guide.md` (skill commands, kit commands, every
 parameter, examples, exit codes). With an argument (`help design`, `help export`), show only that
-command's section. If the references are not bundled, render the table above and the kit command
-list from §3, and point to `scripts/watchover help` in the repository - never invent parameters.
+command's section. If the references are not available, render the table above and the kit command
+list from §3, and point to `scripts/watchover help` in the kit - never invent parameters.
 
 Every command ends with the verification step that applies (offline tests, simulation, plan
 review or live verification) and with the VERIFY caveats that touch the answer.
@@ -117,7 +144,7 @@ Role catalogue: `<bu>/<app>-<env>-workload` (read,list + deny carve-outs), `<bu>
 (CRUD nonprod, read prod), optional `<bu>/delegated-admin`, `platform/auditors` (item list `/*`,
 role/auth-method read `/*`, audit all), `platform/pki-requesters-<x>`, `platform/breakglass`.
 
-## 3. Using the delivery kit (template/)
+## 3. Using the delivery kit (kit root)
 
 ```
 terraform/   versions.tf main.tf auth_methods.tf roles.tf governance.tf pki.tf gateway.tf outputs.tf
@@ -125,7 +152,7 @@ terraform/   versions.tf main.tf auth_methods.tf roles.tf governance.tf pki.tf g
              tests/model.tftest.hcl tests/fixtures/* tests/guard_messages.sh
 bootstrap/   CI OAuth2/JWT auth method + terraform-plan / terraform-apply roles (separate state)
 scripts/     watchover (entry point: test, simulate, verify, export, forwarder, conjur, account-settings, token,
-             build-skill, help) + the scripts it dispatches to
+             build-skill, install-skill, validate-skill, mcp, help) + the scripts it dispatches to
 ci/          github/akeyless-governance.yml gitlab/.gitlab-ci.yml CODEOWNERS.example
 ```
 
