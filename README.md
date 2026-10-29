@@ -53,4 +53,4 @@ The offline tests run on Terraform and OpenTofu in CI:
 - 22 Terraform test runs;
 - 15 proofs that each guard fires with the intended message;
 - 4 bootstrap runs;
-- 100 Python tests.
+- 106 Python tests.

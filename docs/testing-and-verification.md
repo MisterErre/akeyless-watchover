@@ -6,7 +6,7 @@
 | Model rules | `terraform test` (mocked provider, 22 runs) | no | every PR |
 | Guard intent | `terraform/tests/guard_messages.sh` | no | every PR |
 | Effective access (model semantics) | `scripts/akl_simulate.py` | no | every PR |
-| Tooling + usage-guide drift | `pytest scripts/tests` (100 tests) | no | every PR |
+| Tooling + usage-guide drift | `pytest scripts/tests` (106 tests) | no | every PR |
 | Bootstrap | `bootstrap/tests` (4 runs) | no | repo CI |
 | Plan review | `terraform plan` | yes (plan identity) | every PR |
 | Effective access (platform truth) | `scripts/akl_verify.py` / Console Impersonate As | yes | after apply |

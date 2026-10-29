@@ -265,7 +265,11 @@ def test_transports_produce_identical_output(tmp_path, mode):
     # CLI: exact command words and flags
     calls = [json.loads(line) for line in open(tmp_path / "cli.log")]
     assert ["folder", "get", "--name", "/payments", "--json", "--profile", "p"] in calls
-    assert ["list-roles", "--pagination-token", "p2", "--json", "--profile", "p"] in calls
+    assert ["list-roles", "--pagination-token", "p1", "--json", "--profile", "p"] in calls
+    # every list stops at the first empty page although the back end always returns a next_page token
+    roles = len(os.listdir(os.path.join(FX_EXPORT, "roles")))
+    assert ["list-roles", "--pagination-token", f"p{roles}", "--json", "--profile", "p"] in calls
+    assert ["list-roles", "--pagination-token", f"p{roles + 1}", "--json", "--profile", "p"] not in calls
     if mode:
         assert ["list-groups", "--json", "--profile", "p"] in calls
         assert ["gateway-get-config", "--gateway-url", "https://gw:8000", "--json", "--profile", "p"] in calls
@@ -701,3 +705,42 @@ def test_reconcile_no_differences_exits_zero(tmp_path):
         rec.main(["--repo-dir", str(tmp_path / "repo"), "--export-dir", str(ex), "--out", str(tmp_path / "rec")])
     assert e.value.code == 0
     assert "No differences" in (tmp_path / "rec/REPORT.md").read_text()
+
+
+# ---------- pagination: the last page is the first EMPTY page ----------
+class _PagedSource:
+    def __init__(self, pages):
+        self.pages, self.calls = pages, []
+
+    def __call__(self, op, params):
+        self.calls.append(params.get("pagination-token"))
+        return self.pages(params.get("pagination-token"))
+
+
+def _paged(pages, max_pages=None):
+    import akl_export
+    src = akl_export._Source()
+    fake = _PagedSource(pages)
+    src.request = lambda op, p=None, allow_fail=False: fake(op, p or {})
+    if max_pages:
+        src.MAX_PAGES = max_pages
+    return src._paged("list-roles", "roles"), fake.calls
+
+
+@pytest.mark.parametrize("name,pages,want,calls", [
+    ("token on every page, last page empty",
+     lambda t: {"roles": [{"n": t or "p0"}] if (t or "p0") in ("p0", "p1") else [], "next_page": f"p{int((t or 'p0')[1:]) + 1}"},
+     2, 3),
+    ("token missing on the last page", lambda t: {"roles": [{"n": t or "p0"}], **({"next_page": "p1"} if not t else {})}, 2, 2),
+    ("token repeats", lambda t: {"roles": [{"n": t or "p0"}], "next_page": "p1"}, 2, 2),
+    ("server ignores the token (same rows again)", lambda t: {"roles": [{"n": 1}], "next_page": "x" + str(t)}, 1, 2),
+    ("first page empty", lambda t: {"roles": [], "next_page": "p1"}, 0, 1),
+])
+def test_pagination_stops(name, pages, want, calls):
+    rows, made = _paged(pages)
+    assert len(rows) == want and len(made) == calls, name
+
+
+def test_pagination_never_loops_forever():
+    with pytest.raises(RuntimeError, match="pages"):
+        _paged(lambda t: {"roles": [{"n": t}], "next_page": f"{t}x"}, max_pages=50)

@@ -33,6 +33,13 @@ The auth-method field mapping (e.g. Azure `bound_service_principal_ids` -> `boun
 `account_id` -> `bound_aws_account_id`) was taken from the provider 2.0.5 read code of every
 `akeyless_auth_method_*` resource.
 
+## Pagination
+
+List operations (`list-roles`, `list-auth-methods`, `list-items`, `list-targets`, `list-groups`) are read page
+by page. The CLI returns a `next_page` token even after the last page, so the export stops at the **first empty
+page**. It also stops when the token is missing or repeats, or when a page brings nothing new, and it fails after
+10,000 pages instead of looping.
+
 ## Two modes
 
 **Model mode (default)**: for this repository's data-driven Terraform.

@@ -27,11 +27,12 @@ class NotFound(Exception):
 
 
 def respond(op, params):
-    """Return the JSON document Akeyless would return for op/params (two pages for list ops)."""
+    """Return the JSON document Akeyless would return for op/params. List operations behave like the CLI:
+    one row per page and a `next_page` token on EVERY page, including the last, empty one."""
     def paged(key, rows):
-        if params.get("pagination-token") == "p2":
-            return {key: rows[1:]}
-        return {key: rows[:1], "next_page": "p2"} if len(rows) > 1 else {key: rows}
+        tok = params.get("pagination-token") or "p0"
+        n = int(tok[1:])
+        return {key: rows[n:n + 1], "next_page": f"p{n + 1}"}
     if op == "list-roles":
         return paged("roles", [{"role_name": r["role_name"]} for r in _load("roles")])
     if op == "get-role":
@@ -50,7 +51,12 @@ def respond(op, params):
         path = "/" + params["path"].strip("/")
         folders = [f for f in _one("folders_discovered.json", []) if os.path.dirname(f.rstrip("/")) == path]
         items = [i for i in _load("items") if os.path.dirname(i["item_name"]) == path]
-        return {"folders": [f + "/" for f in folders], "items": items}
+        rows = [("folders", f + "/") for f in folders] + [("items", i) for i in items]
+        n = int((params.get("pagination-token") or "p0")[1:])
+        page = {"folders": [], "items": [], "next_page": f"p{n + 1}"}
+        for k, v in rows[n:n + 1]:
+            page[k].append(v)
+        return page
     if op == "folder-get":
         for f in _load("folders"):
             if f["folder"]["folder_name"] == params["name"]:
@@ -68,9 +74,9 @@ def respond(op, params):
     if op == "get-account-settings":
         return _one("account_settings.json", {})
     if op == "list-targets":
-        return {"targets": _one("targets.json", [])}
+        return paged("targets", _one("targets.json", []))
     if op == "list-groups":
-        return {"groups": _one("groups.json", [])}
+        return paged("groups", _one("groups.json", []))
     if op == "gateway-get-config":
         return _one("gateway_config.json", {})
     raise NotFound(op)

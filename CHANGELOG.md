@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.1 - 2026-10-29
+
+Fixed
+- Pagination (`export`, and `reconcile` through it). The Akeyless CLI returns a `next_page` token on every page, including after the last one, so the previous loop only stopped when the token was absent and could run forever.
+  - Reading now stops at the first empty page.
+  - It also stops when the token is missing or repeats, or a page brings no new rows (a server ignoring the token).
+  - It fails after 10,000 pages instead of looping.
+- `list-items` (folder walk) is now paginated with the same rules; before, only its first page was read, so items and sub-folders beyond it were missed.
+- The test back end now behaves like the CLI: one row per page and a token on every page, including the empty last page. Tests cover each stop condition and the loop guard.
+
 ## 1.6.0 - 2026-10-29
 
 Added

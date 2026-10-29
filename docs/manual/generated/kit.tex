@@ -92,7 +92,8 @@ scripts/watchover verify --expectations terraform/model/access_expectations.yaml
 \refrow{Synopsis}{\texttt{scripts/\allowbreak{}watchover export [options]}\hfill\emph{live}}
 \refrow{Does}{Export existing config and translate it: YAML model + import blocks, or plain Terraform (\mbox{-}\mbox{-}hcl).}
 \refrow{How}{\begin{itemize}[nosep,leftmargin=1.2em]
-\item Reads the selected object families through the CLI (\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}json}) or the REST API (token), following pagination; filters by name, root folder, depth or persona.
+\item Reads the selected object families through the CLI (\texttt{\mbox{-\allowbreak{}}\mbox{-\allowbreak{}}json}) or the REST API (token); filters by name, root folder, depth or persona.
+\item Pagination: the CLI returns a \texttt{next\_\allowbreak{}page} token even after the last page, so reading stops at the first EMPTY page; also when the token is missing or repeats, or a page brings nothing new; it aborts after 10,000 pages instead of looping.
 \item Writes raw/ (JSON, secrets redacted) and REPORT.md (items needing a decision).
 \item Model mode: model/*.imported.yaml + imports.tf for the kit. \mbox{-}\mbox{-}hcl: hcl/imports.tf with one import block per object; \mbox{-}\mbox{-}generate runs \texttt{plan -\allowbreak{}generate-\allowbreak{}config-\allowbreak{}out} so Terraform writes the resources.
 \end{itemize}

@@ -145,17 +145,42 @@ class _Source:
     def request(self, op: str, params: dict | None = None, allow_fail: bool = False):  # pragma: no cover
         raise NotImplementedError
 
-    def _paged(self, op: str, key: str, params: dict | None = None) -> list:
-        out, token = [], None
-        while True:
+    MAX_PAGES = 10000
+
+    def _pages(self, op: str, params: dict | None, rows_of):
+        """Yield the rows of each page. The CLI/API return a `next_page` token even after the last page, so
+        the end is an EMPTY page. Also stops when the token is missing or repeats, or when a page brings
+        nothing new (a server ignoring the token), and fails after MAX_PAGES instead of looping forever."""
+        token, tokens, seen = None, set(), set()
+        for _ in range(self.MAX_PAGES):
             p = dict(params or {})
             if token:
                 p["pagination-token"] = token
-            data = self.request(op, p) or {}
-            out += data.get(key) or []
-            token = data.get("next_page")
-            if not token:
-                return out
+            rows = rows_of(self.request(op, p) or {})
+            if not rows:
+                return                                       # empty page: everything was read
+            fresh = [r for r in rows if json.dumps(r, sort_keys=True) not in seen]
+            if not fresh:
+                return                                       # same page again: token ignored
+            seen.update(json.dumps(r, sort_keys=True) for r in fresh)
+            yield fresh
+            token = (self.last_page_token or "")
+            if not token or token in tokens:
+                return
+            tokens.add(token)
+        raise RuntimeError(f"{op}: more than {self.MAX_PAGES} pages - stopping (pagination does not end)")
+
+    last_page_token: str | None = None
+
+    def _paged(self, op: str, key: str, params: dict | None = None) -> list:
+        out = []
+
+        def rows_of(data):
+            self.last_page_token = data.get("next_page")
+            return data.get(key) or []
+        for rows in self._pages(op, params, rows_of):
+            out += rows
+        return out
 
     def roles(self):
         return [self.request("get-role", {"name": r["role_name"]}) for r in self._paged("list-roles", "roles")]
@@ -169,10 +194,18 @@ class _Source:
         seen, items, queue = set(), {}, [(root.rstrip("/") or "/", 0)]
         while queue:
             path, depth = queue.pop(0)
-            data = self.request("list-items", {"path": path}) or {}
-            for it in data.get("items") or []:
-                items[it.get("item_name")] = it
-            for f in data.get("folders") or []:
+            page_folders: list = []
+
+            def rows_of(data):
+                self.last_page_token = data.get("next_page")
+                return [("i", it) for it in data.get("items") or []] + [("f", f) for f in data.get("folders") or []]
+            for rows in self._pages("list-items", {"path": path}, rows_of):
+                for kind, v in rows:
+                    if kind == "i":
+                        items[v.get("item_name")] = v
+                    else:
+                        page_folders.append(v)
+            for f in page_folders:
                 f = "/" + f.strip("/")
                 if f not in seen and f != path:
                     seen.add(f)

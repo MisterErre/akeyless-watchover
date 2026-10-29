@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 
 # --------------------------------------------------------------------------------------
 # Skill commands (what you type to your AI agent). Mirrored in skill/akeyless-watchover/SKILL.md.
@@ -340,8 +340,11 @@ TOOL_HOW: dict[str, list[str]] = {
     "verify": ["For each check whose persona has a `profile`: runs `akeyless describe-permissions --path --type "
                "--json --profile <persona>` and compares `client_permissions` with `expect`.",
                "Personas without a profile are skipped and counted."],
-    "export": ["Reads the selected object families through the CLI (`--json`) or the REST API (token), following "
-               "pagination; filters by name, root folder, depth or persona.",
+    "export": ["Reads the selected object families through the CLI (`--json`) or the REST API (token); filters by "
+               "name, root folder, depth or persona.",
+               "Pagination: the CLI returns a `next_page` token even after the last page, so reading stops at the "
+               "first EMPTY page; also when the token is missing or repeats, or a page brings nothing new; it "
+               "aborts after 10,000 pages instead of looping.",
                "Writes raw/ (JSON, secrets redacted) and REPORT.md (items needing a decision).",
                "Model mode: model/*.imported.yaml + imports.tf for the kit. --hcl: hcl/imports.tf with one import "
                "block per object; --generate runs `plan -generate-config-out` so Terraform writes the resources."],
